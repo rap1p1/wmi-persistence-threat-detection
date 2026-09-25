@@ -1,5 +1,14 @@
 # Change record
 
+## 2026-09-25 — rule metadata and telemetry corrections
+
+- Replaced all nine embedded setup guides, including stale fallback claims, unsupported false-positive claims, outdated configuration descriptions and incorrect Sysmon deletion guidance.
+- Renamed rules to describe their actual event patterns; retained prefixes and rule_id values for historical traceability. Incremented metadata versions.
+- Added field dependency metadata and a telemetry contract covering event categories, actor context, token/integrity distinctions, archive/file hashes, suppression and scheduling.
+- Corrected query comments while preserving executable query predicates, schedules, suppression, severity and ATT&CK tags.
+- Documented delivery provenance gaps, generated-file matches in C4, and cleanup evidence boundaries.
+- Added offline checks for field coverage, event-source descriptions and known overclaim regressions. Live correlation attribution and timing still require source events; this update does not claim to resolve them.
+
 ## 2026-09-25 — attack-to-detection mapping
 
 - Removed the prospective validation plan and blank run-record template from the published documentation.

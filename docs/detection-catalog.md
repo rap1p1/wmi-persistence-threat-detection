@@ -1,6 +1,6 @@
 # Detection catalog
 
-The source of truth for query behavior is [rules_wmi.ndjson](../rules/rules_wmi.ndjson). Queries, rule IDs, schedules, and severity values are retained during the documentation refresh. Rule descriptions and notes have been aligned with their actual scope.
+The source of truth for query behavior is [rules_wmi.ndjson](../rules/rules_wmi.ndjson). Query predicates, rule IDs, schedules, suppression and severity values are retained. Names, comments, setup guidance, descriptions and field metadata now describe the observed patterns without asserting a confirmed incident.
 
 All nine rules are configured to evaluate every minute. A schedule is not a measured time to detect. The export preserves its existing enabled state; review that state in the destination environment before import.
 
@@ -18,6 +18,24 @@ All nine rules are configured to evaluate every minute. A schedule is not a meas
 
 See the [attack-to-detection mapping](attack-detection-mapping.md) for the scenario context and recorded result of each rule.
 
+## Current titles
+
+Historical screenshots retain their original titles. Prefixes and rule_id values identify the same rules across the metadata update.
+
+| ID | Current title |
+| --- | --- |
+| C1 | Fodhelper Child Interpreter |
+| C2 | WMI Subscription Registration Sequence |
+| C3 | WMI-Parented PowerShell Followed by Discovery Process |
+| C4 | PowerShell Staging Files, ZIP Creation and Network Activity |
+| C5 | SYSTEM PowerShell Network Activity Followed by File Deletion |
+| S1 | Script Host With Fodhelper or Cmd Parent |
+| S2 | PowerShell Hidden and Bypass or Encoded Command Patterns |
+| S3 | SYSTEM Shell or Tool With WMI Host Parent |
+| S4 | SYSTEM PowerShell or Curl Network Activity on Web Ports |
+
+See [telemetry contract](telemetry-contract.md) for fields, context interpretation, scheduling and suppression.
+
 ## Interpretation rules
 
 - Treat a signal as a lead requiring context, not a confirmed incident.
@@ -29,7 +47,7 @@ See the [attack-to-detection mapping](attack-detection-mapping.md) for the scena
 
 ## Notification packaging
 
-The public export contains no action connectors or rule actions. Configure notifications privately after rule validation. Historical embedded response commands have been removed. Notes point to the case study and state that response is untested. Query semantics remain unchanged.
+The public export contains no action connectors or rule actions. Configure notifications privately after rule validation. Historical embedded response commands have been removed. Setup and notes identify data dependencies and interpretation limits. No implemented response playbook is distributed. Query predicates remain unchanged.
 
 ## References
 

@@ -14,7 +14,7 @@ The scenario combines script execution, a Fodhelper-based UAC bypass attempt, WM
 
 ![Historical Elastic alert overview](docs/evidence/alerts-overview.png)
 
-The screenshot records alerts observed in April 2026. It is not evidence of ten distinct incidents or nine independently validated techniques.
+The screenshot records alerts observed in April 2026. It is not evidence of ten distinct incidents or nine independently validated techniques. Exported suppression settings can group matching results. Current rule titles have been corrected; screenshots retain the historical names.
 
 ## Attack-to-detection mapping
 
@@ -37,7 +37,8 @@ C4/C5 select PowerShell network events, while the archive-transmission code uses
 1. **[Attack-to-detection mapping](docs/attack-detection-mapping.md)** — what was implemented on each side, the connecting fields, and the recorded alerts.
 2. **[Case study and evidence](docs/case-study.md)** — partial UTC timeline, telemetry assessment, and original screenshots.
 3. **[Scenario analysis](docs/scenario-analysis.md)** — the behaviors present in the original code.
-4. **[Detection catalog](docs/detection-catalog.md)** — the exact scope of each exported query.
+4. **[Detection catalog](docs/detection-catalog.md)** — the exact scope and current title of each exported query.
+5. **[Telemetry contract](docs/telemetry-contract.md)** — field dependencies, event semantics, scheduling and suppression.
 
 ## Repository structure
 
@@ -62,7 +63,7 @@ With Python 3.9+:
 python tools/validate_repository.py
 ```
 
-The validator checks configuration syntax, rule inventory, export hygiene, evidence hashes, and local documentation links. It does not execute the scenario, validate Windows behavior, or compile EQL. See the [change record](CHANGELOG.md) for the refresh scope.
+The validator checks configuration syntax, rule inventory, metadata consistency, export hygiene, evidence hashes, and local documentation links. It does not execute the scenario, validate Windows behavior, or compile EQL. See the [change record](CHANGELOG.md) for the refresh scope.
 
 ## Evidence scope
 

@@ -11,11 +11,15 @@ This is a static description of existing artifacts and an evidence map, not an e
 | `scripts/payload.ps1`, outer script | Writes a separate consumer script and manages a named WMI subscription | Installation and subsequent activation are different events |
 | `scripts/payload.ps1`, embedded script | Discovery, collection, staging, archiving, transmission, and cleanup | Embedded code is not executed merely because the outer file contains it |
 
+The delivery page displays a different archive label from its download target; the referenced archive is absent. The main button opens a modal, which alone does not establish a download. These are provenance gaps, not a demonstrated delivery-to-execution chain.
+
 The scripts remain at their original paths with unchanged bytes. The distinction between launcher, installer, and embedded consumer clarifies which process and event should be attributed to each responsibility. See the [source map](../scripts/README.md).
 
 ## Execution and privilege context
 
 The launcher uses native Windows script hosts and PowerShell. It includes per-user registry changes associated with a Fodhelper-based UAC bypass attempt. This is represented by T1059.003, T1059.005, T1059.001, and T1548.002.
+
+Account name, group membership, effective token and integrity level are distinct observations. The outer script materializes an embedded script; text contained in the outer script is not proof that the embedded stage executed.
 
 C1 detects an interpreter with Fodhelper as parent. It does not verify the registry stage or the resulting token. The correct evidence question is whether the initial account was a local administrator with a filtered token and what integrity/security context the resulting process actually had. “Standard user became administrator” is not an established finding.
 
@@ -37,6 +41,8 @@ The code selects files from user folders and copies shell-history files into a t
 
 The selected Event ID 11 screenshot shows `_manifest.txt`. That supports manifest creation, not successful collection of all candidate documents. File counts, extensions, or a script's summary are not independent evidence of which source contents were collected. Reading shell history also does not prove credential discovery or theft; no credential-extraction result is demonstrated here.
 
+Several blocks suppress errors, so a summary message is not independent confirmation that earlier operations succeeded. C4's initial file predicate can match generated `info.txt` or `_manifest.txt` even without evidence of copied user documents.
+
 ## Archive and network activity
 
 PowerShell creates a ZIP archive (T1560.001). The embedded script assigns archive transmission to curl and status/error notifications to PowerShell. A later notification is not equivalent to a successful archive transfer.
@@ -50,6 +56,8 @@ The curl network event and the PowerShell network stages in C4/C5 refer to diffe
 The code attempts staging/archive deletion and clearing of the current execution context's history file. The retained Event ID 23 screenshot establishes ZIP deletion by `cmd.exe`, supporting T1070.004 for that observed artifact.
 
 It does not show that all copied histories, the installed consumer script, or the WMI subscription were removed. Deletion does not establish why it occurred or that a previous transfer succeeded. Broad cleanup claims from the former report are not carried forward.
+
+Clearing file contents is not file deletion. The current context's history path is not all users' history, and the retained ZIP event does not establish either history operation. See [telemetry contract](telemetry-contract.md) for the distinction between Sysmon 23 and 26.
 
 ## Delivery context and absent techniques
 

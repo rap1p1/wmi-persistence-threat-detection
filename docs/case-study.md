@@ -59,6 +59,8 @@ The manifest and ZIP screenshots share the displayed PowerShell ProcessGuid and 
 
 ![WMI binding creation](evidence/wmi-binding.png)
 
+The Event Viewer summary User and the user inside the WMI event data are distinct fields; the summary alone does not identify the registration actor.
+
 The selected Event ID 21 references `NotepadFilter` and `SystemDumpConsumer`. The list also contains event types 19 and 20. Their presence in a list does not replace a raw export of their fields.
 
 ### E02 — Discovery process
@@ -105,7 +107,7 @@ The two S4 rows concern different process roles: curl and PowerShell. C4/C5 sour
 4. **The test denominator is missing.** Ten alerts are not a measured true-positive rate. There is no published negative-case baseline or latency dataset.
 5. **Configuration provenance matters.** The checked-in XML comment was malformed; the original screenshot shows a differently named loaded config. The corrected XML still needs Windows/runtime validation.
 
-The distinction between process creation and file creation is ordinary telemetry semantics, not a novel project contribution. It is not used here as a claim of exceptional detection capability.
+The exported rules also contain suppression settings, so the ten displayed alerts are representative outputs rather than a count of underlying events. The [telemetry contract](telemetry-contract.md) documents this and the remaining field/timing constraints. Current titles and metadata were corrected after the historical screenshots; those screenshots do not validate the updated package at runtime.
 
 ## Detection mapping
 

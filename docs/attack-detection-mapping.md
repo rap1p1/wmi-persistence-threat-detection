@@ -24,11 +24,13 @@ The rules cover three connected areas of the scenario:
 - **WMI installation and subsequent activity:** C2 observes subscription registration, S3 observes an interpreter under a WMI host, and C3 adds discovery-process activity. Installation and activation have separate evidence.
 - **File handling and network activity:** C4 combines staging, archiving, and a connection; S4 provides individual network signals; C5 adds deletion after a connection.
 
-The retained overview shows **10 alerts across nine rules**, including two S4 alerts. Several rules intentionally observe overlapping behavior. The screenshot alone does not establish that every rule used the same underlying run or the specific source events implied by the narrative.
+The retained overview shows **10 alerts across nine rules**, including two S4 alerts. All nine exported rules include suppression settings; representative alert counts cannot be converted directly to event counts. Current titles differ from the historical screenshot titles, with prefixes and rule_id values retained. Several rules intentionally observe overlapping behavior. The screenshot alone does not establish that every rule used the same underlying run or the specific source events implied by the narrative.
 
 ## Event relationships visible in the evidence
 
 The manifest and ZIP file screenshots display the same PowerShell ProcessGuid and PID. That provides a concrete link between those two file events.
+
+Generated `info.txt` or `_manifest.txt` can satisfy C4's initial file predicate. Thus a file-stage match does not independently establish collection of source documents.
 
 The curl connection and cmd deletion screenshots have different process identities. Their parent/child relationships are not displayed in the selected images. C4/C5 currently join by `host.name`, so the query does not supply that missing process relationship.
 
@@ -54,3 +56,5 @@ The scenario analysis uses T1567 for web-service transmission. Historical export
 This mapping documents existing code, existing queries, and retained evidence. It is not a coverage percentage. Full raw source-event exports and a labeled benign baseline are absent, so alert correctness and false-positive rates cannot be derived from the screenshots.
 
 See the [detection catalog](detection-catalog.md) for query limits and the [case study](case-study.md) for the timestamped observations.
+
+See [telemetry contract](telemetry-contract.md) for event semantics, required-field metadata, suppression and scheduling.

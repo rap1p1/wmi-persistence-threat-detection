@@ -34,7 +34,7 @@
     <WmiEvent onmatch="exclude">
     </WmiEvent>
 
-    <!-- FileDelete (EventID 23): Staging paths + sensitive extensions
+    <!-- FileDelete (EventID 23): Staging paths + sensitive extensions -->
     <FileDelete onmatch="include">
       <!-- Staging paths -->
       <TargetFilename condition="contains">\Temp\</TargetFilename>

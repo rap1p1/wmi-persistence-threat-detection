@@ -1,0 +1,42 @@
+{
+  "source_commit": "43a7141c7753058e58bfb0894d4123236ce3d1b9",
+  "source_document": "docs/BaoCao_WMI_Persistent.docx",
+  "transformation": "Selected original image bytes, unchanged; not a new lab run.",
+  "images": [
+    {
+      "file": "wmi-binding.png",
+      "source": "word/media/image11.png",
+      "sha256": "ed2cb618a02eddaefe6afa2375726a163967dc16abdff8df631c8ea51479c2e3"
+    },
+    {
+      "file": "discovery-process.png",
+      "source": "word/media/image13.png",
+      "sha256": "5d0a887a2c2d5130cc3cbd05fbe1985e96d6b7977ef850f1fc4797d7d6b0e559"
+    },
+    {
+      "file": "staging-manifest.png",
+      "source": "word/media/image14.png",
+      "sha256": "3f7ae0af15fd257751edc9782163aac751749c93c963dc07f25dc3336d3c60fa"
+    },
+    {
+      "file": "archive-created.png",
+      "source": "word/media/image16.png",
+      "sha256": "0ecc5a981d5ee9e500f585c9a87706d00b04f49ac93d27fbd9942417a0abf323"
+    },
+    {
+      "file": "curl-network.png",
+      "source": "word/media/image17.png",
+      "sha256": "71f82b2df3333a0102c7dc9c3e9607fddd5dc876376bb7f1cdd11cb0c0b54f51"
+    },
+    {
+      "file": "archive-deleted.png",
+      "source": "word/media/image21.png",
+      "sha256": "4c8f76abf61cb099d2a77c987d88599c948a7035062494e6204a58f6cbfa768b"
+    },
+    {
+      "file": "alerts-overview.png",
+      "source": "word/media/image31.png",
+      "sha256": "1fb6e94f0490ffd7a462fef13ac906729a1223f5cb74940c71105341a29b6e1a"
+    }
+  ]
+}

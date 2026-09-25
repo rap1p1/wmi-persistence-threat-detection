@@ -52,7 +52,6 @@ The manifest and ZIP screenshots share the displayed PowerShell ProcessGuid and 
 | Archive transmitted | curl connection; former report also shows a Telegram attachment | Supporting screenshot evidence, attribution incomplete | Receiver receipt and matching archive hash tied to the run |
 | Cleanup occurred | ZIP deletion event | Supported for that ZIP | Per-artifact cleanup outcome; history/subscription outcome separately |
 | Rules are accurate | Alert overview | Alerts observed | Positive/negative labels, repeated runs, source-event joins |
-| Response contained the incident | AI-drafted historical playbook | Not implemented or tested | An actual response exercise, outside completed project scope |
 
 ## Selected evidence
 
@@ -108,9 +107,9 @@ The two S4 rows concern different process roles: curl and PowerShell. C4/C5 sour
 
 The distinction between process creation and file creation is ordinary telemetry semantics, not a novel project contribution. It is not used here as a claim of exceptional detection capability.
 
-## Work that remains
+## Detection mapping
 
-The [validation plan](validation-plan.md) is future work, not a record of completed tests. Highest priorities are a sanitized raw-event run, alert-to-source-event attribution, independent file-transfer confirmation, and negative tests for same-host false joins. Response automation and a validated playbook are not delivered features.
+The [attack-to-detection mapping](attack-detection-mapping.md) connects each implemented behavior to the rule conditions, telemetry fields, and retained evidence. It also identifies code behaviors that have no dedicated detection in the export.
 
 A credential was exposed in the historical connector export. Current export sanitization does not revoke it or erase earlier history. The owner must complete revocation and historical review.
 

@@ -16,6 +16,8 @@ All nine rules are configured to evaluate every minute. A schedule is not a meas
 | S3 | Single process event | Listed shell/tool under WmiPrvSE/scrcons in SYSTEM context | Parent/context alone does not establish a permanent malicious subscription |
 | S4 | Single network event | SYSTEM PowerShell or curl connection to selected web ports, outside listed network ranges | Connection metadata does not prove HTTP, HTTPS, maliciousness, or file transfer |
 
+See the [attack-to-detection mapping](attack-detection-mapping.md) for the scenario context and recorded result of each rule.
+
 ## Interpretation rules
 
 - Treat a signal as a lead requiring context, not a confirmed incident.

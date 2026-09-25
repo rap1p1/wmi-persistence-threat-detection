@@ -29,7 +29,7 @@ The recorded binding references named filter and consumer objects. Activation, i
 
 The embedded script queries the operating system, network addresses, local accounts, and ARP cache. The applicable analytical categories are system information discovery (T1082), network configuration discovery (T1016), and local account discovery (T1087.001).
 
-A screenshot proves that `ARP.EXE` started. It does not individually prove the results of the PowerShell-based queries. Future evidence should include the relevant script telemetry and sanitized output associated with the same process identity.
+A screenshot proves that `ARP.EXE` started. It does not individually prove the results of the PowerShell-based queries. The published evidence does not include the relevant script telemetry and sanitized query output associated with that process identity.
 
 ## Collection and staging
 
@@ -56,6 +56,10 @@ It does not show that all copied histories, the installed consumer script, or th
 A landing page and a narrative about packaged delivery are present, but the full delivery-to-execution evidence is not published. Treat phishing/user-execution labels as context unless supporting browser, download, and process evidence is added.
 
 The repository does not implement a demonstrated credential-dumping, remote lateral-movement, injection, or ransomware-impact stage. This is a local WMI-centered scenario; it should be evaluated on that scope.
+
+## Detection mapping
+
+See [attack-to-detection mapping](attack-detection-mapping.md) for how these behaviors relate to the implemented rules and retained evidence.
 
 ## References
 

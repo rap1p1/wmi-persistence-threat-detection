@@ -1,5 +1,12 @@
 # Change record
 
+## 2026-09-25 — attack-to-detection mapping
+
+- Removed the prospective validation plan and blank run-record template from the published documentation.
+- Added a behavior-to-telemetry-to-rule mapping with links to retained evidence, process/object relationships, and overlapping rule coverage.
+- Replaced the README technique list with a concise mapping of implemented detection work and observed alerts.
+- Preserved scenario code, rule queries, and evidence images unchanged.
+
 ## 2026-09-25 — evidence-based documentation refresh
 
 Baseline: `43a7141c7753058e58bfb0894d4123236ce3d1b9`.
@@ -7,7 +14,7 @@ Baseline: `43a7141c7753058e58bfb0894d4123236ce3d1b9`.
 - Replaced the Word report with a Markdown case study, a partial UTC event timeline, and an explicit telemetry-coverage assessment.
 - Retained seven selected original screenshots unchanged, with source-image provenance and SHA-256 values. Removed the Word file from the current tree; its historical version remains in Git.
 - Rewrote README around implemented behaviors, observed results, and verified scope. Added static scenario analysis and a source map.
-- Removed the unimplemented playbook, duplicated limitations document, and unsupported performance/AV-evasion claims. Labeled future validation as planned work.
+- Removed the unimplemented playbook, duplicated limitations document, and unsupported performance/AV-evasion claims. Separated measured observations from unverified claims.
 - Corrected the malformed Sysmon XML comment without changing filter conditions.
 - Removed notification actions/connectors and environment-specific export metadata. Owner-side credential rotation is still required.
 - Aligned descriptions, false-positive caveats, and notes with query scope. Preserved rule IDs, queries, names, enabled state, schedules, severity, filters, and original ATT&CK tags.

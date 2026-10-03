@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Build a run ledger from live Elasticsearch evidence (generic, by run id).
 
 Discovers the S1..S7 signature events inside a RUN-SCOPED window (anchored on the
@@ -135,7 +135,12 @@ manf = search(base_win + [{"term": {"event.code": "11"}},
                           {"term": {"file.name": "_manifest.txt"}}], 2)
 zcr = search(base_win + [{"term": {"event.code": "11"}}, {"term": {"file.name": "wdmp.zip"}}], 2)
 cur1 = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "curl.exe"}}], 4)
-cur3 = search(base_win + [{"term": {"event.code": "3"}}, {"term": {"process.name": "curl.exe"}}], 3)
+# E3 attribution: match by the curl ENTITY, not the name - Sysmon can emit E3 for a
+# short-lived curl with `Image: <unknown process>` (process.name empty) while still
+# carrying the correct process.entity_id (observed on this lab stack). Store all E3s
+# in the window; the verifier joins E1<->E3 by entity and records a GAP only when the
+# E3 entity is also missing.
+cur3_any = search(base_win + [{"term": {"event.code": "3"}}], 40)
 ps3 = search(base_win + [{"term": {"event.code": "3"}},
                          {"terms": {"process.name": ["powershell.exe"]}}], 3)
 d23 = search(base_win + [{"term": {"event.code": "23"}},
@@ -170,11 +175,11 @@ stages = [
      "notes": "in-process queries not independently evidenced; ARP parent entity == consumer entity (verifier)"},
     {"stage": "S6", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
      "input_artifacts": ["ART-06-01"], "output_artifacts": ["ART-07-01"],
-     "evidence_refs": with_ids([ref(h["_source"]) for h in zcr[:1] + cur1[:2] + cur3[:1] + ps3[:1]],
-                               zcr[:1] + cur1[:2] + cur3[:1] + ps3[:1]) +
+     "evidence_refs": with_ids([ref(h["_source"]) for h in zcr[:1] + cur1[:2] + cur3_any + ps3[:1]],
+                               zcr[:1] + cur1[:2] + cur3_any + ps3[:1]) +
          [{"kind": "receipt", "artifact": "ART-07-01-*.json",
            "detail": "sink receipt (server-side); raw sha256 + manifest canonical hash"}],
-     "notes": "archive create by consumer entity; curl E1/E3 entity-owned (GAP if E3 unassigned); receipt proves transfer"},
+     "notes": "archive create by consumer entity; E3 ownership by process.entity_id (name-less E3 accepted; GAP only when entity missing); receipt proves transfer"},
     {"stage": "S7", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
      "input_artifacts": [], "output_artifacts": ["ART-08-01"],
      "evidence_refs": with_ids([ref(d23[0]["_source"])] if d23 else [], d23[:1]),

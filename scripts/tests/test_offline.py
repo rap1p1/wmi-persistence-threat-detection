@@ -435,6 +435,35 @@ class JoinCheckTests(unittest.TestCase):
         vr.join_checks(ledger, failures)
         self.assertTrue(any("binding refs mismatch" in f for f in failures), failures)
 
+    def test_e3_join_by_entity_without_name(self):
+        """A name-less E3 (Sysmon 'unknown process') with a matching entity must pass
+        the ownership join (entity is the technical key, not the name)."""
+        import verify.verify_run_evidence as vr
+
+        ledger = self._ledger()
+        s6 = [s for s in ledger["stages"] if s["stage"] == "S6"][0]
+        for r in s6["evidence_refs"]:
+            if r.get("event") == "3" and r.get("process_name") == "curl.exe":
+                r["process_name"] = None  # simulate Image: <unknown process>
+        failures, gaps = [], []
+        vr.join_checks(ledger, failures, gaps)
+        self.assertEqual(failures, [])
+        self.assertEqual(gaps, [])
+
+    def test_e3_missing_entity_is_gap_not_failure(self):
+        import verify.verify_run_evidence as vr
+
+        ledger = self._ledger()
+        s6 = [s for s in ledger["stages"] if s["stage"] == "S6"][0]
+        for r in s6["evidence_refs"]:
+            if r.get("event") == "3" and r.get("process_name") == "curl.exe":
+                r["entity_id"] = None
+                r["process_name"] = None
+        failures, gaps = [], []
+        vr.join_checks(ledger, failures, gaps)
+        self.assertEqual(failures, [])
+        self.assertTrue(any("E1<->E3 ownership unverified" in g for g in gaps), gaps)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

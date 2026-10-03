@@ -81,7 +81,7 @@ delete (C5), ancestry/binding/path joins at the verifier.
 | S4 Script-Spawned Curl with Upload Arguments | 2 | both curl E1s with upload args (parent powershell); upload intent only |
 | C5 Archive Creation Followed by Archive Deletion | 1 | wdmp.zip create (09:55:34.975) + delete (09:55:39.180); same path (verifier) |
 
-Negative control window (2026-10-03 10:00–10:05Z, idle): **0 matches for all rules** (S4 removed later; its run-01 evaluation was 1).
+Negative control window (2026-10-03 10:00–10:05Z, idle): **0 matches for all rules**.
 
 Live-alert smoke (separate from this run, after import): a registry `ms-settings`
 write+delete in the guest (2026-10-03 10:36:39Z) produced 2 EID 13 events; **R1

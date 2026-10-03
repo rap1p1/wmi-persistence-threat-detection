@@ -1,4 +1,4 @@
-﻿# evidence — Run records
+# evidence — Run records
 
 ## Runs
 
@@ -8,6 +8,8 @@ Each run is a directory containing its ledger and artifacts.
 |---|---|
 | `runs/RUN-schema.json` | ledger schema (stages S1–S7 / input + output artifacts / artifact_index with sha256). Schema is stable across runs; never re-shaped for a run. |
 | `runs/RUN-20261003-01/` | first verified run: ledger + artifacts + sink receipt (verifier ACCEPTED, report `reports/reference-run-20261003-01.md`) |
+| `runs/RUN-20261003-02/` | live-alert run: ledger + artifacts + sink receipt (rebuilt with entity-based E3 ownership; verifier ACCEPTED, report `reports/reference-run-20261003-02.md`) |
+| `runs/RUN-20261003-03/` | final export run: ledger + artifacts + sink receipt (verifier ACCEPTED; 14 unique clusters / 25 stored alerts; report `reports/reference-run-20261003-03.md`) |
 | `sanitized-screenshots/` | **historical** April-2026 screenshots with hashes. These are provenance for the earlier analysis, not evidence for any run; keep them out of any acceptance claim. |
 
 ## Ledger conventions

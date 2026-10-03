@@ -1,0 +1,26 @@
+{
+  "notes": "guest probe 2026-10-03T11:39Z",
+  "run_id": "RUN-20261003-03",
+  "checks": [
+    {
+      "result": "PASS",
+      "check": "wdmp.zip removed in guest"
+    },
+    {
+      "result": "PASS",
+      "check": "wdmp dir removed"
+    },
+    {
+      "result": "PASS",
+      "check": "svhw.ps1 present with run id"
+    },
+    {
+      "result": "PASS",
+      "check": "subscription re-installed"
+    },
+    {
+      "result": "PASS",
+      "check": "sink receipt received (wdmp.zip 14661 B)"
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 ﻿# Change record
 
+## 2026-10-03 - RUN-20261003-03 (final export) and E3-by-entity resolution
+
+- E3 attribution resolved at the technical key: Sysmon emits the curl E3 with `Image: <unknown process>` (process.name empty) but with the correct process.entity_id; the ledger now stores all window E3s and the verifier joins E1<->E3 BY ENTITY (GAP only when the entity is also missing). RUN-20261003-02 rebuilt and verified with this join (S6 ownership OK, name-less annotation kept).
+- Executed RUN-20261003-03 with the final 11-rule export live in Kibana: ledger `evidence/runs/RUN-20261003-03/` (56 event refs), verifier ACCEPTED (ES re-verification, module + binding + entity ownership + path joins). Detection: 14 unique clusters / **25 stored alerts**, incl. **S4 = 2 stored alerts** (E1-only upload-intent signal). Report `reports/reference-run-20261003-03.md`.
+
 ## 2026-10-03 - Kibana synced with the final 11-rule export
 
 - Deleted the OLD S4 (Curl Upload-Intent Process Making a Network Connection, id 6e5813cb...) from Kibana and imported the current export: 11 rules, 0 errors.

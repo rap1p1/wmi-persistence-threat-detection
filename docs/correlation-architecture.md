@@ -68,10 +68,12 @@ cscript) whose command line carries upload arguments (`-T`, `--upload-file`,
 `-F`/`--form`, `--data-binary`, `-d`). It proves upload INTENT by the invoking
 interpreter — never a successful send. No archive name, IP, port or hostname is
 required. A host/time E1-E3 join is deliberately NOT used (it could attribute another
-process' connection to this curl). E1↔E3 ownership is the verifier's `S6` ledger
-join, reported as **GAP** when the curl E3 lacks attribution (observed in
-RUN-20261003-02: Sysmon E3 carried `Image: <unknown process>` — a local telemetry
-gap); transfer success is proven by the sink receipt.
+process' connection to this curl). E1↔E3 **ownership is joined by `process.entity_id`**
+(the technical key): Sysmon can emit the E3 for a short-lived curl with
+`Image: <unknown process>` (process.name empty) while still carrying the correct
+entity — the ledger stores all window E3s and the verifier matches by entity. A GAP
+is recorded only when the E3's entity is also missing; transfer success is proven by
+the sink receipt.
 
 ### C5 — archive created then deleted
 

@@ -162,21 +162,32 @@ def join_checks(ledger, failures, gaps=None):
     arp = need("S5", "1", "arp E1", process="arp.exe")
     eq(arp, "parent_entity_id", con, "entity_id", "C3 interpreter->arp")
 
-    # S6: PS status E3 owned by the consumer (hard); curl E1<->E3 ownership (GAP-aware)
+    # S6: PS status E3 owned by the consumer (hard); curl E1<->E3 ownership by ENTITY.
+    # Sysmon can emit an E3 for a short-lived curl with `Image: <unknown process>`
+    # (process.name empty) while still carrying process.entity_id - the ledger stores
+    # all window E3s so the join uses entity; a GAP is recorded only when no E3 with a
+    # matching entity (or name) exists.
     ps3 = need("S6", "3", "powershell status E3", process="powershell.exe")
     eq(ps3, "entity_id", con, "entity_id", "S6 status-channel owner")
     curl1 = _find_ref(stages, "S6", "1", process="curl.exe")
-    curl3 = _find_ref(stages, "S6", "3", process="curl.exe")
-    if curl1 and curl3:
+    e3_refs = [r for r in stages.get("S6", {}).get("evidence_refs", [])
+               if r.get("kind") == "event" and str(r.get("event")) == "3"]
+    e3_by_entity = [r for r in e3_refs if curl1 and r.get("entity_id")
+                    and curl1.get("entity_id") and r["entity_id"] == curl1["entity_id"]]
+    e3_by_name = [r for r in e3_refs if (r.get("process_name") or "").lower() == "curl.exe"]
+    curl3 = (e3_by_entity or e3_by_name or [None])[0]
+    if curl3:
         va, vb = curl1.get("entity_id"), curl3.get("entity_id")
         if not (va and vb):
-            gaps.append("S6: curl E3 lacks process entity - E1<->E3 ownership unverified; transfer proven by receipt")
+            gaps.append("S6: curl E3 lacks a process entity - E1<->E3 ownership unverified; transfer proven by receipt")
         elif va != vb:
             failures.append(f"join S6 curl E1->E3 ownership: entity {va} != {vb}")
         else:
-            print(f"  ok  S6 curl E1->E3 ownership ({va[:24]}...)")
-    elif curl1:
-        gaps.append("S6: no attributable curl E3 in window - E1<->E3 ownership unverified; transfer proven by receipt")
+            print(f"  ok  S6 curl E1->E3 ownership by entity ({va[:24]}...; "
+                  f"E3 process name {'present' if curl3.get('process_name') else 'missing (unknown process)'})")
+    else:
+        gaps.append("S6: no E3 attributable to the curl process in window - E1<->E3 "
+                    "ownership unverified; transfer proven by receipt")
 
     # C5: archive create and delete reference the same file path
     zc = need("S6", "11", "archive create E11", file_name="wdmp.zip")

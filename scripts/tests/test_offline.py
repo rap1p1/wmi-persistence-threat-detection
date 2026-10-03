@@ -289,5 +289,48 @@ class TimestampToleranceTests(unittest.TestCase):
         self.assertEqual(failures, [])
 
 
+def test_s3_module_integrity(self):
+        import verify.verify_run_evidence as vr
+
+        def full_ledger():
+            stages = []
+            for i in range(1, 8):
+                stages.append({"stage": f"S{i}", "host": "VICTIM",
+                               "account": "VICTIM\\victim", "status": "PASS",
+                               "input_artifacts": [], "output_artifacts": [],
+                               "evidence_refs": [{"kind": "event", "event": "1",
+                                                  "ts": "2026-10-13T01:00:05Z",
+                                                  "detail": "x"}]})
+            return {"run_id": "RUN-20261013-01", "scenario_id": "WMI-LAB-1",
+                    "created_utc": "2026-10-13T01:00:00Z",
+                    "secrets_policy": "no-secrets-allowed",
+                    "stages": stages, "artifact_index": []}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            (d / "payload").mkdir()
+            (d / "payload" / "consumer.ps1").write_bytes(b"$x = 1\r\n")
+            raw = el.raw_sha256((d / "payload" / "consumer.ps1").read_bytes())
+
+            # positive: EID 11 file_hash matches the staged consumer raw hash
+            ledger = full_ledger()
+            ledger["stages"][2]["evidence_refs"] = [
+                {"kind": "event", "event": "11", "ts": "2026-10-13T01:00:05Z",
+                 "detail": "svhw.ps1", "file_hash": raw}]
+            ledger["artifact_index"] = [
+                {"artifact_id": "ART-01-02", "path": "payload/consumer.ps1",
+                 "sha256": el.canon_sha256(b"$x = 1\n"),
+                 "producer_stage": "S3", "consumer_stage": "S3"}]
+            failures = []
+            vr.validate_run(ledger, d, failures)
+            self.assertFalse([f for f in failures if "module integrity" in f], failures)
+
+            # negative: tampered staged consumer does NOT match the recorded hash
+            (d / "payload" / "consumer.ps1").write_bytes(b"$x = 2\r\n")
+            failures = []
+            vr.validate_run(ledger, d, failures)
+            self.assertTrue(any("module integrity mismatch" in f for f in failures), failures)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

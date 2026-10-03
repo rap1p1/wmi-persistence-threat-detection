@@ -18,7 +18,12 @@ Each run is a directory containing its ledger and artifacts.
 - `status` is one of the schema enum; `NOT RUN` must carry an explicit note.
 - Artifact hashes: text artifacts indexed with the canonical hash (CRLF→LF
   normalised); binary artifacts (`.zip` etc.) indexed with the raw-byte hash —
-  the verifier decides by file suffix.
+  the verifier decides by file suffix. The S3 **module-integrity join** compares
+  the Sysmon EID 11 `Hash` (raw bytes) against the raw sha256 of the staged
+  consumer (`payload/consumer.ps1`, prepared by `scripts/prepare_run.ps1`,
+  indexed as ART-01-02) — raw, because Sysmon hashes raw bytes.
+- Run-scoped payloads live at `<run_id>/payload/` (prepared by
+  `scripts/prepare_run.ps1`) and are indexed like any other artifact.
 - Artifacts are written by the sink (`scripts/sink_server.py`) or captured by the
   operator; the run id is verified *inside* each artifact, not just the folder name.
 - No credentials anywhere; `secrets_policy` is part of the schema.

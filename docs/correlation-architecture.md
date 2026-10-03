@@ -94,6 +94,17 @@
   the hash recorded in the receipt.
 - Cross-host hash is the join key between producer (guest) and consumer (sink).
 
+### Module integrity (S3) — byte-identical staged consumer
+
+- `scripts/prepare_run.ps1` writes the run-scoped staged copy under
+  `evidence/runs/<run_id>/payload/` (indexed as `ART-01-02`) and prints its raw
+  sha256. `install.ps1` materializes `svhw.ps1` with byte-fidelity (no BOM, no
+  line-ending conversion), so the guest file is byte-identical to the staged copy.
+- Join (verifier): the Sysmon EID 11 `Hash` field of the `svhw.ps1` write equals the
+  raw sha256 of the staged consumer — a DIRECT EVENT LINK (hash equality across
+  hosts, §1.4 Module integrity). Text artifacts are indexed canonically in the
+  ledger; this join deliberately uses the raw hash because Sysmon hashes raw bytes.
+
 ## 3. Correlation tiers
 
 | Tier | Meaning | Valid example |

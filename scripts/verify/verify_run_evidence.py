@@ -131,6 +131,32 @@ def validate_run(ledger, directory, failures):
                 failures.append(f"stage {name}: expected >= {minimum} event {code} ({hint}), "
                                 f"got {got}")
 
+    # S3 module integrity: the EID 11 file hash of the materialized svhw.ps1 must
+    # equal the raw sha256 of the staged consumer (ART-01-02). Sysmon hashes raw
+    # bytes, so this join uses the raw hash even though text artifacts are indexed
+    # canonically (evidence/runs/README.md).
+    s3 = stages["S3"]
+    hash_ref = next((r for r in (s3.get("evidence_refs") or [])
+                     if r.get("kind") == "event" and str(r.get("event")) == "11"
+                     and r.get("file_hash")), None)
+    entry = next((a for a in ledger.get("artifact_index", [])
+                  if a.get("artifact_id") == "ART-01-02"), None)
+    if hash_ref:
+        ref_hash = str(hash_ref["file_hash"]).upper()
+        if entry is None:
+            failures.append("S3: EID 11 file_hash recorded but ART-01-02 "
+                            "(staged consumer) missing from artifact_index")
+        else:
+            staged = directory / entry["path"]
+            if not staged.is_file():
+                failures.append(f"S3: staged consumer file missing: {entry['path']}")
+            elif el.raw_sha256(staged.read_bytes()) != ref_hash:
+                failures.append(f"S3: module integrity mismatch - staged consumer "
+                                f"raw hash != EID 11 hash {ref_hash}")
+            else:
+                print(f"  ok  S3 module integrity: EID 11 hash == staged consumer "
+                      f"({ref_hash[:16]}...)")
+
     # S6: transfer integrity from the receipt artifact (offline-verifiable).
     receipt_row = None
     for row in stages["S6"].get("evidence_refs") or []:

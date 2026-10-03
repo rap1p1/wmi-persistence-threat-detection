@@ -1,5 +1,24 @@
 # Change record
 
+## 2026-10-03 — run-day refinements after the Phase 0–2 restructure
+
+- `config/sysmon-config.xml`: removed the three empty `onmatch="exclude"` blocks
+  (Network/Registry/WMI) whose runtime behaviour is ambiguous ("exclude nothing" vs
+  "exclude all"); a section-less event type logs all events, which the chain needs.
+- Verifier: ES-backed re-verification (re-fetch each recorded event by `es_id` and
+  assert the stored timestamp matches the ledger, within tolerance); URL-safe `es_id`
+  handling; S3 module-integrity assertion (Sysmon EID 11 `Hash` == raw sha256 of the
+  staged consumer ART-01-02).
+- `scripts/prepare_run.ps1`: run-scoped payload staging with run id / sink base /
+  host substitution, output under `evidence/runs/<run_id>/payload/`, prints the
+  staged consumer sha256; `install.ps1` now materializes `svhw.ps1` with byte
+  fidelity (no BOM, no line-ending conversion) so the module-integrity link holds.
+- Generator: fixed the MITRE `threat` JSON shape (PowerShell array-subexpression
+  flattening corrupted nested subtechniques; singleton arrays unrolled) and added a
+  structural regression test; validator now checks export field completeness.
+- Docs: runbook/chain-plan/correlation-architecture updated for staged payloads and
+  the module-integrity join; scenario-analysis paths aligned to the new layout.
+
 ## 2026-10-03 — evidence architecture and repository restructure (Phase 0–2)
 
 Driven by the Phase 0 gap audit (detection basis missing repo-wide; no run-scoped

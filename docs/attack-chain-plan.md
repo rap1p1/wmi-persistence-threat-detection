@@ -34,6 +34,12 @@ Traffic: the guest reaches the sink over the lab network on a dedicated port
 (default 9180, documented per run). No external service is contacted; Telegram and
 other external channels are **out of scope by design** (§F).
 
+Run-scoped staging: `scripts/prepare_run.ps1` substitutes the run id, sink base and
+host into a copy of the payloads under `evidence/runs/<run_id>/payload/` and prints
+the staged consumer sha256 (indexed as ART-01-02). The guest runs that staged copy;
+S3's EID 11 `Hash` of the materialized `svhw.ps1` is cross-checked against the
+staged hash (module-integrity link, §1.4).
+
 ## S1 — Entry
 
 - Who: operator action = simulate the user double-clicking `setup.bat` (or real

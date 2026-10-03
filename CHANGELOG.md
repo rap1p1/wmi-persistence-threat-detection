@@ -1,20 +1,39 @@
-﻿# Change record
+# Change record
 
-## 2026-10-03 - S4 removed (owner decision)
+## 2026-10-03 - S4 kept and redesigned; ledger window fix
 
-- Removed rule S4 (Curl Upload-Intent Process Making a Network Connection): its run-02
-  evaluation was 0 because the curl E3 lacked process attribution in that window, so
-  the E1<->E3 ownership signal could not fire. Query, export, catalogue, docs and
-  tests updated; export is now **10 rules**. Transfer success stays proven by the sink
-  receipt (name/size/sha256) + ART-06-01/ART-07-01 equality. The E1<->E3 ownership
-  check remains in the acceptance verifier (relabelled "S6 curl E1->E3 ownership").
-  Kibana: delete the existing S4 rule server-side when re-importing the 10-rule export.
+- S4 kept (per review) and rewritten as a SINGLE-EVENT E1 signal: curl spawned by a
+  script/interpreter (powershell/cmd/wscript/cscript) with upload-intent arguments;
+  no archive name/IP/port/hostname; NO E1-E3 host/time join (that would risk
+  misattributing another process' connection to this curl). Name: "[S4] Script-
+  Spawned Curl with Upload Arguments". It proves upload INTENT; E1<->E3 ownership is
+  the verifier S6 ledger join, recorded as **GAP** when the curl E3 lacks attribution;
+  transfer success stays proven by the sink receipt.
+- Ledger builder window fix (correctness): the generic builder anchored on the OLDEST
+  setup.bat event, letting run-01/attempt-1 events leak into RUN-20261003-02 and
+  producing an unreliable ACCEPTED. Now anchors on the LATEST setup.bat launch with a
+  60 s pre-buffer; RUN-20261003-02 rebuilt (20 genuine events) and re-verified
+  ACCEPTED with `GAP S6` recorded.
+- E3 attribution root cause: run-02 curl E3s carry `Image: <unknown process>` - Sysmon
+  LOCAL attribution failure (the ES message text comes from Sysmon's local record);
+  ingested E3s have entity but no process.name, so E1<->E3 ownership is a gap, not a
+  failure and not a forced host/time match.
+- Re-evaluation with the redesigned S4: 11/11 rules in both run windows (S4 = 2
+  clusters each), 0/11 in the idle control window.
 
 ## 2026-10-03 - RUN-20261003-02 (live-alert re-run)
 
-- Re-ran the chain with the 11 rules live in Kibana: ledger vidence/runs/RUN-20261003-02/, verifier ACCEPTED (ES re-verification, 25 events, module + binding + ancestry/path joins).
-- First attempt aborted and reverted: leftover run-01 objects made Set-WmiInstance update rather than create, so EID 20/21 Created were absent. install.ps1 removal hardened (verified purge incl. Dsh* debris) and the chain re-ran on a clean window; the abort is recorded as a retry.
-- Detection: 12 unique EQL clusters, 23 stored alerts (upper bound - 1m/2m lookback re-matches). S4=0 in this window: the curl E3 lacked process attribution (telemetry-quality finding; receipt is the transfer proof). Generic ledger builder added (scripts/build_ledger_run.py).
+- Re-ran the chain with the 11 rules live in Kibana: ledger
+  evidence/runs/RUN-20261003-02/, verifier ACCEPTED (ES re-verification, module +
+  binding + ancestry/path joins; S4's E3 ownership recorded as GAP in this run).
+- First attempt aborted and reverted: leftover run-01 objects made Set-WmiInstance
+  update rather than create, so EID 20/21 Created were absent. install.ps1 removal
+  hardened (verified purge incl. Dsh* debris) and the chain re-ran on a clean window;
+  the abort is recorded as a retry.
+- Detection: unique EQL clusters 11/11 (run02), stored alerts are upper bounds (1 m
+  interval / 2 m lookback re-matches); S4's E1 signal fired (2 clusters) while the
+  curl E3 lacked process attribution (telemetry-quality finding; receipt is the
+  transfer proof). Generic ledger builder added (scripts/build_ledger_run.py).
 
 ## 2026-10-03 — Kibana import and live-alert smoke
 

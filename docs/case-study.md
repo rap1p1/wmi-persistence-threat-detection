@@ -8,7 +8,7 @@ Can endpoint telemetry establish the transition from script execution to WMI sub
 
 This Markdown case study replaces `BaoCao_WMI_Persistent.docx`. It retains the necessary findings and selected original screenshots without preserving unsupported performance claims, generic response prose, or repeated dashboard images.
 
-The evidence originated in repository commit `43a7141c7753058e58bfb0894d4123236ce3d1b9`. The retained images show activity on 11 April 2026. They were extracted unchanged from the Word document; their source names and SHA-256 values are in [the evidence manifest](evidence/manifest.json). The September documentation review is not a new experiment.
+The evidence originated in repository commit `43a7141c7753058e58bfb0894d4123236ce3d1b9`. The retained images show activity on 11 April 2026. They were extracted unchanged from the Word document; their source names and SHA-256 values are in [the evidence manifest](../evidence/sanitized-screenshots/manifest.json). The September documentation review is not a new experiment.
 
 The original material describes Windows, Sysmon, Elastic Agent, and Elastic/Kibana. Its environment/configuration descriptions are not fully aligned with the screenshots. A current, verified environment manifest has not been supplied. The Word file is removed from the current tree but remains in Git history.
 
@@ -57,7 +57,7 @@ The manifest and ZIP screenshots share the displayed PowerShell ProcessGuid and 
 
 ### E01 — WMI object binding
 
-![WMI binding creation](evidence/wmi-binding.png)
+![WMI binding creation](../evidence/sanitized-screenshots/wmi-binding.png)
 
 The Event Viewer summary User and the user inside the WMI event data are distinct fields; the summary alone does not identify the registration actor.
 
@@ -65,37 +65,37 @@ The selected Event ID 21 references `NotepadFilter` and `SystemDumpConsumer`. Th
 
 ### E02 — Discovery process
 
-![ARP process event](evidence/discovery-process.png)
+![ARP process event](../evidence/sanitized-screenshots/discovery-process.png)
 
 The selected process is `ARP.EXE`. This screenshot does not display the full parent-process section or the command output.
 
 ### E03 — Staging manifest
 
-![Manifest creation event](evidence/staging-manifest.png)
+![Manifest creation event](../evidence/sanitized-screenshots/staging-manifest.png)
 
 The selected target is `_manifest.txt`. Calling this screenshot proof of all copied user documents would exceed what it shows.
 
 ### E04 — Archive creation
 
-![ZIP creation event](evidence/archive-created.png)
+![ZIP creation event](../evidence/sanitized-screenshots/archive-created.png)
 
 The selected file event identifies the ZIP path and the PowerShell process. It does not enumerate archive members.
 
 ### E05 — Network activity
 
-![curl connection event](evidence/curl-network.png)
+![curl connection event](../evidence/sanitized-screenshots/curl-network.png)
 
 The selected Event ID 3 identifies SYSTEM curl. The image does not expose every connection field. The former report's Telegram screenshot adds evidence of an attachment but is not republished here because it includes unrelated account/UI content; receipt/hash verification is still missing.
 
 ### E06 — Archive deletion
 
-![ZIP deletion event](evidence/archive-deleted.png)
+![ZIP deletion event](../evidence/sanitized-screenshots/archive-deleted.png)
 
 The selected event identifies cmd and the ZIP path. The former caption claimed deletion of the consumer script as well; that additional claim is not visible in this selected event.
 
 ### E07 — Alert overview
 
-![Ten alerts across nine rules](evidence/alerts-overview.png)
+![Ten alerts across nine rules](../evidence/sanitized-screenshots/alerts-overview.png)
 
 The two S4 rows concern different process roles: curl and PowerShell. C4/C5 source events must be examined before assigning their alerts to the archive transfer.
 
@@ -119,4 +119,4 @@ A credential was exposed in the historical connector export. Current export sani
 
 - [Microsoft Sysmon event definitions](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon)
 - [Elastic EQL syntax](https://www.elastic.co/docs/reference/query-languages/eql/eql-syntax)
-- [Detection catalog](detection-catalog.md)
+- [Detection catalog](../detections/README.md)

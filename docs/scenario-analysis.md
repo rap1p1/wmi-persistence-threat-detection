@@ -1,4 +1,4 @@
-# Scenario analysis
+﻿# Scenario analysis
 
 This is a static description of existing artifacts and an evidence map, not an execution guide. “Present in code” means the behavior is implemented or attempted; it does not establish successful execution.
 
@@ -13,7 +13,7 @@ This is a static description of existing artifacts and an evidence map, not an e
 
 The delivery page displays a different archive label from its download target; the referenced archive is absent. The main button opens a modal, which alone does not establish a download. These are provenance gaps, not a demonstrated delivery-to-execution chain.
 
-The scripts remain at their original paths with unchanged bytes. The distinction between launcher, installer, and embedded consumer clarifies which process and event should be attributed to each responsibility. See the [source map](../scripts/README.md).
+The scripts remain at their original paths with unchanged bytes. The distinction between launcher, installer, and embedded consumer clarifies which process and event should be attributed to each responsibility. See the [source map](../payloads/README.md).
 
 ## Execution and privilege context
 

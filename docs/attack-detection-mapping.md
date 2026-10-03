@@ -1,6 +1,6 @@
-# Attack-to-detection mapping
+﻿# Attack-to-detection mapping
 
-This document connects the behaviors in the original scenario code to the detection engineering implemented in the repository. The [rule export](../rules/rules_wmi.ndjson) defines query behavior; the [retained screenshots](case-study.md#selected-evidence) show the recorded results.
+This document connects the behaviors in the original scenario code to the detection engineering implemented in the repository. The [rule export](../detections/exports/wmi-rules.ndjson) defines query behavior; the [retained screenshots](case-study.md#selected-evidence) show the recorded results.
 
 ## Coverage map
 
@@ -55,6 +55,6 @@ The scenario analysis uses T1567 for web-service transmission. Historical export
 
 This mapping documents existing code, existing queries, and retained evidence. It is not a coverage percentage. Full raw source-event exports and a labeled benign baseline are absent, so alert correctness and false-positive rates cannot be derived from the screenshots.
 
-See the [detection catalog](detection-catalog.md) for query limits and the [case study](case-study.md) for the timestamped observations.
+See the [detections catalogue](../detections/README.md) for query limits and the [case study](case-study.md) for the timestamped observations.
 
 See [telemetry contract](telemetry-contract.md) for event semantics, required-field metadata, suppression and scheduling.

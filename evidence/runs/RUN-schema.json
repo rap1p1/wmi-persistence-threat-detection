@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wmi-lab-run-ledger-schema-1",
+  "title": "WMI Lab Run Ledger",
+  "description": "Ground-truth run ledger for a single lab run of the WMI persistence + UAC bypass kill chain. NEVER contains secrets: credential-like fields are forbidden by convention and rejected by scripts/tests/test_offline.py and the repository validator.",
+  "type": "object",
+  "required": ["run_id", "scenario_id", "created_utc", "secrets_policy", "stages", "artifact_index"],
+  "additionalProperties": false,
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^RUN-[0-9]{8}-[0-9]{2,}$" },
+    "scenario_id": { "type": "string", "const": "WMI-LAB-1" },
+    "created_utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "secrets_policy": { "type": "string", "const": "no-secrets-allowed" },
+    "notes": { "type": "string" },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stage", "host", "account", "status", "input_artifacts", "output_artifacts"],
+        "additionalProperties": false,
+        "properties": {
+          "stage": { "type": "string", "pattern": "^S[1-7](b)?$" },
+          "host": { "type": "string" },
+          "account": { "type": "string" },
+          "status": {
+            "enum": ["NOT RUN", "PARTIAL", "PASS", "SENSOR GAP", "INGEST/MAPPING GAP", "PREVENTED", "DENIED", "CHAIN BROKEN"]
+          },
+          "input_artifacts": { "type": "array", "items": { "type": "string" } },
+          "output_artifacts": { "type": "array", "items": { "type": "string" } },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "detail"],
+              "additionalProperties": true,
+              "properties": {
+                "kind": {
+                  "enum": ["event", "register", "receipt", "artifact", "rule", "scorecard", "decision", "session", "impact"]
+                },
+                "detail": { "type": "string" }
+              }
+            }
+          },
+          "rollback_status": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "artifact_index": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["artifact_id", "path", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": { "type": "string", "pattern": "^ART-[0-9]{2}-[0-9]{2}$" },
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9A-F]{64}$" },
+          "producer_stage": { "type": "string", "pattern": "^S[1-7](b)?$" },
+          "consumer_stage": { "type": "string", "pattern": "^S[1-7](b)?$" }
+        }
+      }
+    }
+  }
+}

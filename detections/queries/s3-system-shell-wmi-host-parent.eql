@@ -1,0 +1,23 @@
+/*
+ * Detection basis: MITRE T1546.003 DET0086/AN0236 ("anomalous child processes of
+ * WmiPrvSE.exe"); Sigma sysmon_wmi_susp_scripting (name-referenced).
+ * Telemetry: Sysmon EID 1.
+ * Boundary: process-context evidence; connecting the child to the exact subscription
+ * requires the WMI-Activity channel / verifier cross-check; permanent-subscription
+ * provenance must be verified separately (docs/correlation-architecture.md, R2/S3).
+ */
+process where
+  winlog.event_id == "1"
+  and winlog.channel == "Microsoft-Windows-Sysmon/Operational"
+  and (
+    process.parent.name in ("WmiPrvSE.exe", "scrcons.exe")
+    or process.parent.executable like "*\\\\WmiPrvSE.exe"
+    or process.parent.executable like "*\\\\scrcons.exe"
+  )
+  and user.name in ("SYSTEM", "NT AUTHORITY\\SYSTEM")
+  /* Listed interpreters and tools; legitimate WMI administration can overlap */
+  and process.name in (
+    "powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe",
+    "mshta.exe", "rundll32.exe", "regsvr32.exe", "bitsadmin.exe",
+    "certutil.exe", "msiexec.exe"
+  )

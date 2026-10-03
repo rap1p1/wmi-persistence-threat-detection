@@ -1,0 +1,12 @@
+/*
+ * Detection basis: Sigma proc_creation_win_uac_bypass_fodhelper (7f741dcf-fc22-4759-87b4-9ae8376676a2);
+ * MITRE T1548.002 detection strategy DET0388/AN1094 (process half).
+ * Telemetry: Sysmon EID 1, channel Microsoft-Windows-Sysmon/Operational.
+ * Boundary: single process event; does not consume the registry stage or prove
+ * privilege elevation (see docs/correlation-architecture.md, C1/R1).
+ */
+process where
+  winlog.event_id : "1"
+  and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+  and process.parent.name : "fodhelper.exe"
+  and process.name in ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe")

@@ -1,0 +1,29 @@
+/*
+ * Detection basis: MITRE T1546.003 DET0086/AN0236 — trigger -> consumer activation.
+ * Adds the activation stage to C2's registration-only view: the registered filter
+ * fires on notepad.exe creation, the CommandLineEventConsumer runs powershell under
+ * WmiPrvSE.exe (SYSTEM) with the scripted consumer.
+ * Telemetry: Sysmon EID 1 (two process events) on the same host.
+ * Boundary: subscription->execution attribution stays TEMPORAL/CONTEXTUAL (the WQL
+ * trigger object is not in these events); the direct link is the process ancestry
+ * WmiPrvSE -> powershell via parent.entity_id, cross-checked by the verifier
+ * (docs/correlation-architecture.md, R2).
+ */
+sequence by host.name with maxspan=60s
+
+  /* Trigger: the filter condition references Win32_Process named notepad.exe */
+  [process where
+    winlog.event_id : "1"
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and process.name : "notepad.exe"
+  ]
+
+  /* Consumer execution under the WMI Provider Host as SYSTEM, scripted consumer */
+  [process where
+    winlog.event_id : "1"
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and process.name : "powershell.exe"
+    and process.parent.name : "WmiPrvSE.exe"
+    and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
+    and process.command_line like "*svhw.ps1*"
+  ]

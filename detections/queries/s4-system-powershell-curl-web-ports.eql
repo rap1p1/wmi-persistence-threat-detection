@@ -1,0 +1,16 @@
+/*
+ * Detection basis: generic web-port egress telemetry (T1041/T1567-analog); the walker
+ * for the archive send is curl.exe. C4/C5 select the PowerShell status channel.
+ * Telemetry: Sysmon EID 3.
+ * Boundary: connection metadata does not prove HTTP, HTTPS, maliciousness or transfer;
+ * port filters are not protocol verification (docs/correlation-architecture.md, E3).
+ */
+network where
+  winlog.event_id : "3"
+  and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+  and process.name in ("powershell.exe", "curl.exe")
+  and destination.port in (443, 8443, 80)
+  and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
+  and not cidrmatch(destination.ip,
+    "127.0.0.0/8", "::1", "0.0.0.0/32", "169.254.0.0/16",
+    "10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12")

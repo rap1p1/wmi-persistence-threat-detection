@@ -1,0 +1,23 @@
+{
+  "artifact_id": "ART-07-01",
+  "run_id": "RUN-20261003-02",
+  "kind": "transfer-receipt",
+  "payload": {
+    "run_id": "RUN-20261003-02",
+    "host": "wmi",
+    "manifest_sha256": "EEDA0013C510ACBD001B62BE2339B67AB5C9A9F1A72AECD681DEDAC239D68287",
+    "sink_files": [
+      {
+        "name": "wdmp.zip",
+        "size": 14653,
+        "sha256": "5F1F8E6F7199FC446D963AABE6933DCD8D74D72BC57672ABAE32BFED6CF0C0F6"
+      },
+      {
+        "name": "_manifest.txt",
+        "size": 394,
+        "sha256": "EEDA0013C510ACBD001B62BE2339B67AB5C9A9F1A72AECD681DEDAC239D68287",
+        "kind": "manifest-snapshot"
+      }
+    ]
+  }
+}

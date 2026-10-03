@@ -1,4 +1,10 @@
-# Change record
+﻿# Change record
+
+## 2026-10-03 - RUN-20261003-02 (live-alert re-run)
+
+- Re-ran the chain with the 11 rules live in Kibana: ledger vidence/runs/RUN-20261003-02/, verifier ACCEPTED (ES re-verification, 25 events, module + binding + ancestry/path joins).
+- First attempt aborted and reverted: leftover run-01 objects made Set-WmiInstance update rather than create, so EID 20/21 Created were absent. install.ps1 removal hardened (verified purge incl. Dsh* debris) and the chain re-ran on a clean window; the abort is recorded as a retry.
+- Detection: 12 unique EQL clusters, 23 stored alerts (upper bound - 1m/2m lookback re-matches). S4=0 in this window: the curl E3 lacked process attribution (telemetry-quality finding; receipt is the transfer proof). Generic ledger builder added (scripts/build_ledger_run.py).
 
 ## 2026-10-03 — Kibana import and live-alert smoke
 

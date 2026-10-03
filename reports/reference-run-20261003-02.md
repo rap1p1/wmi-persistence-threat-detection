@@ -59,10 +59,12 @@ documented). Sysmon 15.21 + repo config, Elastic Agent shipping, internal sink
 | S3 | 1 | 1 | consumer powershell |
 | C3 | 1 | 3 | interpreter → discovery (ancestry verifier-checked) |
 | C4 | 1 | 3 | staging → archive by the consumer entity |
-| S4 Script-Spawned Curl with Upload Arguments | 2 | both curl E1s with upload args (parent powershell); upload intent fires regardless of the E3 attribution gap; E1<->E3 ownership is a verifier GAP |
+| S4 Script-Spawned Curl with Upload Arguments | 2 | 0* | upload-intent E1 signal (redesigned AFTER this run; at run time the live rule was the older E3-joining S4, which stored 0). Current-export clusters = 2 (both curl E1s) |
 | C5 | 1 | 3 | wdmp.zip create → delete, same path (verifier) |
 
-**That is 12 unique clusters; 23 stored alerts.** Stored-alert counts are **upper
+**That is 14 unique clusters under the current export; 23 stored alerts were recorded
+under the rules live at run time** (the older S4 stored 0 because it required an E3
+join; the current S4 is E1-only and matches 2). Stored-alert counts are **upper
 bounds**: with a 1 m interval and a 2 m look-back the same event cluster is re-matched
 across consecutive evaluations; suppression groups bound within-run merging but do not
 collapse cross-evaluation alerts. Unique clusters come from the direct EQL re-run over

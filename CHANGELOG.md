@@ -1,4 +1,9 @@
-# Change record
+﻿# Change record
+
+## 2026-10-03 - Kibana synced with the final 11-rule export
+
+- Deleted the OLD S4 (Curl Upload-Intent Process Making a Network Connection, id 6e5813cb...) from Kibana and imported the current export: 11 rules, 0 errors.
+- Verified via `_find`: all 11 names present, deterministic rule_id values match the repository export, enabled, building_block_type=default; no stale S4 name remains.
 
 ## 2026-10-03 - S4 kept and redesigned; ledger window fix
 

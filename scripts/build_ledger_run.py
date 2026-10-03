@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build a run ledger from live Elasticsearch evidence (generic, by run id).
 
-Discovers the S1..S7 signature events inside the run window, stores rich join
-fields per ref (entity / parent entity / file path / destination / registry /
-WMI references), and indexes the run artifacts. Credentials: environment only.
-Usage: python scripts/build_ledger_run.py RUN-YYYYMMDD-NN   (ES_URL/ES_USER/ES_PASS)
-Guest-side svhw.ps1 hash (module anchor) must be passed via GUEST_SVHW_SHA256.
+Discovers the S1..S7 signature events inside a RUN-SCOPED window (anchored on the
+latest setup.bat launch, override with RUN_WINDOW_START/RUN_WINDOW_END), stores rich
+join fields per ref, indexes artifacts. Credentials: environment only.
+Usage: python scripts/build_ledger_run.py RUN-YYYYMMDD-NN
+Guest-side svhw.ps1 hash (module anchor) via GUEST_SVHW_SHA256.
 """
 import base64
 import hashlib
@@ -95,49 +95,51 @@ def with_ids(refs, hits):
 
 
 base = [{"term": {"host.name": "wmi"}}]
-s1 = search(base + [{"term": {"event.code": "1"}}, {"wildcard": {"message": "*setup.bat*"}}], 2)
-W0 = s1[0]["_source"]["@timestamp"] if s1 else None
-window = {"gte": W0, "lte": "now+1m"}  # verifier uses ledger ts; ES re-verify uses es_id only
-reg = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "13"}},
-                     {"term": {"process.name": "reg.exe"}}], 4)
-fod = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                     {"term": {"process.name": "fodhelper.exe"}}], 2)
-wsc = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                     {"term": {"process.name": "wscript.exe"}}], 2)
-psi = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                     {"term": {"process.name": "powershell.exe"}},
-                     {"wildcard": {"process.command_line": "*install.ps1*"}}], 2)
-svh = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "11"}},
-                     {"wildcard": {"file.name": "svhw.ps1"}}], 2)
-e19 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "19"}},
-                     {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-e20 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "20"}},
-                     {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-e21 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "21"}},
-                     {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-ntp = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                     {"term": {"process.name": "notepad.exe"}}], 2)
-wps = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                     {"term": {"process.parent.name": "WmiPrvSE.exe"}}], 2)
+s1 = search(base + [{"term": {"event.code": "1"}}, {"wildcard": {"message": "*setup.bat*"}}], 50)
+if not s1:
+    raise SystemExit("no setup.bat entry event found")
+# Anchor on the LATEST entry (a re-run must not blend an earlier window); the search
+# window opens a small buffer BEFORE that anchor so registration events (which trail
+# the entry by ~2-3 s) are included, while earlier attempts stay excluded.
+from datetime import datetime, timedelta, timezone
+s1_new = max(s1, key=lambda h: h["_source"]["@timestamp"])
+anchor = s1_new["_source"]["@timestamp"]
+W0 = os.environ.get("RUN_WINDOW_START") or (
+    (datetime.fromisoformat(anchor.replace("Z", "+00:00")) - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+W1 = os.environ.get("RUN_WINDOW_END") or "now"
+window = {"gte": W0, "lte": W1}
+created_utc = anchor[:19] + "Z"
+base_win = base + [{"range": {"@timestamp": window}}]
+
+reg = search(base_win + [{"term": {"event.code": "13"}}, {"term": {"process.name": "reg.exe"}}], 4)
+fod = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "fodhelper.exe"}}], 2)
+wsc = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "wscript.exe"}}], 2)
+psi = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "powershell.exe"}},
+                         {"wildcard": {"process.command_line": "*install.ps1*"}}], 2)
+svh = search(base_win + [{"term": {"event.code": "11"}}, {"wildcard": {"file.name": "svhw.ps1"}}], 2)
+e19 = search(base_win + [{"term": {"event.code": "19"}},
+                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
+e20 = search(base_win + [{"term": {"event.code": "20"}},
+                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
+e21 = search(base_win + [{"term": {"event.code": "21"}},
+                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
+ntp = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "notepad.exe"}}], 2)
+wps = search(base_win + [{"term": {"event.code": "1"}},
+                         {"term": {"process.parent.name": "WmiPrvSE.exe"}}], 2)
 arp = post(f"{ES}/{SYS}/_search",
            {"size": 2, "query": {"bool": {"must": [{"query_string": {"query": 'message:"arp"'}}],
-                                   "filter": base + [{"range": {"@timestamp": {"gte": W0}}},
-                                                     {"term": {"event.code": "1"}}]}},
+                                          "filter": base_win + [{"term": {"event.code": "1"}}]}},
             "sort": [{"@timestamp": "asc"}]})["hits"]["hits"]
-info = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "11"}},
-                      {"term": {"file.name": "info.txt"}}], 2)
-manf = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "11"}},
-                      {"term": {"file.name": "_manifest.txt"}}], 2)
-zcr = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "11"}},
-                     {"term": {"file.name": "wdmp.zip"}}], 2)
-cur1 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "1"}},
-                      {"term": {"process.name": "curl.exe"}}], 4)
-cur3 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "3"}},
-                      {"term": {"process.name": "curl.exe"}}], 3)
-ps3 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "3"}},
-                     {"terms": {"process.name": ["powershell.exe"]}}], 3)
-d23 = search(base + [{"range": {"@timestamp": {"gte": W0}}}, {"term": {"event.code": "23"}},
-                     {"wildcard": {"file.name": "wdmp.zip"}}], 2)
+info = search(base_win + [{"term": {"event.code": "11"}}, {"term": {"file.name": "info.txt"}}], 2)
+manf = search(base_win + [{"term": {"event.code": "11"}},
+                          {"term": {"file.name": "_manifest.txt"}}], 2)
+zcr = search(base_win + [{"term": {"event.code": "11"}}, {"term": {"file.name": "wdmp.zip"}}], 2)
+cur1 = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "curl.exe"}}], 4)
+cur3 = search(base_win + [{"term": {"event.code": "3"}}, {"term": {"process.name": "curl.exe"}}], 3)
+ps3 = search(base_win + [{"term": {"event.code": "3"}},
+                         {"terms": {"process.name": ["powershell.exe"]}}], 3)
+d23 = search(base_win + [{"term": {"event.code": "23"}},
+                         {"wildcard": {"file.name": "wdmp.zip"}}], 2)
 
 svh_refs = with_ids([ref(h["_source"]) for h in svh], svh)
 if svh_refs and GUEST_HASH:
@@ -147,7 +149,7 @@ if svh_refs and GUEST_HASH:
 stages = [
     {"stage": "S1", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
      "input_artifacts": [], "output_artifacts": [],
-     "evidence_refs": with_ids([ref(s1[0]["_source"])], s1[:1]),
+     "evidence_refs": with_ids([ref(s1_new["_source"])], [s1_new]),
      "notes": "operator action: setup.bat launched via vmrun (declared; session 0, High integrity)"},
     {"stage": "S2", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
      "input_artifacts": [], "output_artifacts": [],
@@ -172,10 +174,10 @@ stages = [
                                zcr[:1] + cur1[:2] + cur3[:1] + ps3[:1]) +
          [{"kind": "receipt", "artifact": "ART-07-01-*.json",
            "detail": "sink receipt (server-side); raw sha256 + manifest canonical hash"}],
-     "notes": "archive create by consumer entity; curl E1/E3 entity-owned; receipt proves transfer"},
+     "notes": "archive create by consumer entity; curl E1/E3 entity-owned (GAP if E3 unassigned); receipt proves transfer"},
     {"stage": "S7", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
      "input_artifacts": [], "output_artifacts": ["ART-08-01"],
-     "evidence_refs": with_ids([ref(d23[0]["_source"])], d23[:1]),
+     "evidence_refs": with_ids([ref(d23[0]["_source"])] if d23 else [], d23[:1]),
      "notes": "wdmp.zip deletion; create/delete same file.path (verifier)"},
 ]
 
@@ -193,7 +195,7 @@ for aid, rel, prod, cons in (("ART-01-01", "payload/setup.bat", "S1", ""),
     idx.append({"artifact_id": aid, "path": rel, "sha256": raw(p) if p.suffix.lower() == ".zip" else canon(p),
                 "producer_stage": prod, "consumer_stage": cons})
 ledger = {"run_id": RUN, "scenario_id": "WMI-LAB-1",
-          "created_utc": (W0 or "")[:19] + "Z",  # schema: whole seconds, Z
+          "created_utc": created_utc,  # schema: whole seconds, Z
           "secrets_policy": "no-secrets-allowed", "stages": stages, "artifact_index": idx}
 out = run_dir / f"{RUN}.json"
 out.write_text(json.dumps(ledger, indent=2, ensure_ascii=False), encoding="utf-8")

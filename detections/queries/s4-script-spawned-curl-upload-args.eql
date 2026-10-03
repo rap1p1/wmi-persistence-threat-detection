@@ -1,0 +1,16 @@
+/*
+ * Detection basis: upload-intent egress (T1041/T1573-analog). SINGLE-EVENT signal:
+ * a curl process launched by a script/interpreter whose command line carries upload
+ * arguments. It proves upload INTENT by the invoking interpreter - never a
+ * successful send. No archive name, IP, port or hostname is required.
+ * Network ownership: E1<->E3 by process.entity_id is a separate ledger/verifier
+ * join (S6, GAP when the E3 lacks attribution); a host/time E1-E3 join is NOT used,
+ * because it would risk attributing another process' connection to this curl.
+ * Transfer success: the sink receipt + manifest-receipt equality.
+ */
+process where
+  winlog.event_id : "1"
+  and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+  and process.name : "curl.exe"
+  and process.parent.name : ("powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe")
+  and process.command_line : ("*-T *", "*--upload-file*", "*-F *", "*--form*", "*--data-binary*", "*-d *")

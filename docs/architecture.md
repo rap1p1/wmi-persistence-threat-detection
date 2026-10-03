@@ -63,8 +63,9 @@ documented per run). Endpoints match the code exactly:
   (`ART-07-01-<run>.json`): observed file name/size/sha256 (raw bytes for the zip)
   and the canonical manifest hash (CRLF→LF normalised) for the ART-06-01 snapshot.
 - `POST /status/<run_id>` — receives PowerShell status/notification JSON (this is
-  the status channel; in this design the archive transfer is curl, so a status
-  message is never read as a transfer — S4 + receipt carry that claim).
+  the status channel; the archive transfer is curl, so a status message is never
+  read as a transfer — S4 observes the upload-intent E1 signal and the sink receipt
+  carries the transfer claim).
 - `GET /health` — liveness.
 - Receipts never carry credentials; run id and artifact id are validated against the
   expected patterns; filenames are basenames only; upload size is bounded.

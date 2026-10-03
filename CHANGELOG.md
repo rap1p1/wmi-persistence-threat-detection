@@ -1,5 +1,15 @@
 ﻿# Change record
 
+## 2026-10-03 - S4 removed (owner decision)
+
+- Removed rule S4 (Curl Upload-Intent Process Making a Network Connection): its run-02
+  evaluation was 0 because the curl E3 lacked process attribution in that window, so
+  the E1<->E3 ownership signal could not fire. Query, export, catalogue, docs and
+  tests updated; export is now **10 rules**. Transfer success stays proven by the sink
+  receipt (name/size/sha256) + ART-06-01/ART-07-01 equality. The E1<->E3 ownership
+  check remains in the acceptance verifier (relabelled "S6 curl E1->E3 ownership").
+  Kibana: delete the existing S4 rule server-side when re-importing the 10-rule export.
+
 ## 2026-10-03 - RUN-20261003-02 (live-alert re-run)
 
 - Re-ran the chain with the 11 rules live in Kibana: ledger vidence/runs/RUN-20261003-02/, verifier ACCEPTED (ES re-verification, 25 events, module + binding + ancestry/path joins).

@@ -20,7 +20,7 @@ collection, staging, archiving, exfil to an internal sink, and cleanup.
 | S3 | Persistence install: write consumer, register WMI filter/consumer/binding | T1546.003 | C2 (19/20/21); the consumer PS also matches S2/S3/R2 (overlap documented) |
 | S4 | Activation: notepad.exe fires filter → consumer under WmiPrvSE as SYSTEM | T1546.003 | R2 (registration→interpreter), S3, C3 (discovery part) |
 | S5 | Discovery + collection + staging + manifest | T1082/T1016/T1087.001, T1005/T1074.001 | C3 (discovery), staging creates feed C4 |
-| S6 | Archive + exfil to internal sink (curl) + status message (PS) | T1560.001, T1567 surrogate | C4 (archive create), S4 (curl upload-intent + connection), receipt (transfer) |
+| S6 | Archive + exfil to internal sink (curl) + status message (PS) | T1560.001, T1567 surrogate | C4 (archive create), S4 (script-spawned curl upload intent), receipt (transfer); E1↔E3 ownership is a ledger join (GAP when unassigned) |
 | S7 | Cleanup: delete staging + archive; history clearing | T1070.004 | C5 (archive create → delete; same-path verifier-checked) |
 
 ## Environment

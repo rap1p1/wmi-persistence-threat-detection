@@ -80,7 +80,7 @@ class RuleExportTests(unittest.TestCase):
             "s3": "s3-system-shell-wmi-host-parent",
             "c3": "c3-wmi-hosted-interpreter-discovery",
             "c4": "c4-single-process-staging-archive",
-            "s4": "s4-curl-upload-intent-connection",
+            "s4": "s4-script-spawned-curl-upload-args",
             "c5": "c5-archive-created-then-deleted",
         }
         for r in self.rules:

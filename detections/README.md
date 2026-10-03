@@ -32,7 +32,7 @@ All rules follow the same conventions:
 | **S3** | SYSTEM Shell or Tool With WMI Host Parent | 73 | host+entity (60 s) | EID 1 SYSTEM, parent WmiPrvSE/scrcons; S4 | DET0086/AN0236; Sigma `sysmon_wmi_susp_scripting` |
 | **C3** | WMI-Hosted Interpreter Followed by Discovery Process | 73 | host (60 s) | Sequence: WMI-hosted SYSTEM interpreter → SYSTEM discovery (30 s); ancestry verifier-checked | DET0086/AN0236 + T1082/T1016 |
 | **C4** | Staging and Archive Creation by a Single Process | 73 | host+entity (120 s) | Sequence EID 11: non-archive create → zip create, same `process.entity_id`; S5/S6 | T1005/T1074.001/T1560.001 |
-| **S4** | Curl Upload-Intent Process Making a Network Connection | 73 | host+entity (60 s) | Sequence: curl with `-T`/`--upload-file`/`--form`/`--data-binary`/`-d` → E3 owned by the same curl entity; S6 | T1041 upload-intent egress |
+| **S4** | Script-Spawned Curl with Upload Arguments | 73 | host+entity (60 s) | EID 1: curl spawned by a script/interpreter with upload-intent args; S6 | T1041 upload-intent egress |
 | **C5** | Archive Creation Followed by Archive Deletion | 73 | host (60 s) | Sequence EID 11 zip → EID 23 zip (2 m); same-path verifier-checked; S7 | T1070.004 |
 
 EQL scope notes: host/time correlations are exactly what the query expresses; joins
@@ -46,9 +46,9 @@ create/delete path equality) are executed by
 | Rule | Matches | Rule | Matches |
 |---|---|---|---|
 | R1 | 2 | C4 | 1 |
-| C1 | 1 | S4 | 1 |
-| S1 | 1 | C5 | 1 |
-| S2 | 2 (install PS + consumer PS) | C2 | 1 |
+| C1 | 1 | C5 | 1 |
+| S1 | 1 | C2 | 1 |
+| S2 | 2 (install PS + consumer PS) | S4 | 2 |
 | R2 | 1 | C3 | 1 |
 | S3 | 1 | | |
 

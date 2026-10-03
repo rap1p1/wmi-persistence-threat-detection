@@ -1,4 +1,4 @@
-﻿# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
+# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
 #
 # Loads every query from detections/queries/*.eql plus the per-rule metadata below
 # and writes detections/exports/wmi-rules.ndjson.
@@ -248,20 +248,20 @@ $rules = @(
         fp=@('A WMI-hosted process that happens to create a file then an archive matches; staging creates include generated manifests. No measured false-positive rate is implied.')
     }
     @{
-        file='s4-curl-upload-intent-connection.eql'; id='S4'
-        name='[S4] Curl Upload-Intent Process Making a Network Connection'
-        desc='Same curl entity: EID 1 curl with upload-intent arguments (T/upload-file/form/data-binary) followed by an EID 3 connection owned by that curl. Upload-INTENT plus a connection - not transfer success; no port or IP allow/deny lists.'
+        file='s4-script-spawned-curl-upload-args.eql'; id='S4'
+        name='[S4] Script-Spawned Curl with Upload Arguments'
+        desc='Single-event signal: a curl process launched by a script/interpreter (powershell/cmd/wscript/cscript) with upload-intent arguments. Proves upload INTENT by the invoking interpreter, not a successful send; E1->E3 ownership and transfer are asserted separately (verifier S6 join and the sink receipt). No archive name, IP, port or hostname is required.'
         tags=@('Signal','Exfiltration','T1041')
         severity='high'; risk=73
         tactic=@('TA0010','Exfiltration')
         techniques=@(
             @{ id='T1041'; name='Exfiltration Over C2 Channel' })
         interval='1m'; from='now-2m'
-        event_ids=@('1','3')
+        event_ids=@('1')
         supp=@{ group=@('host.name','process.entity_id'); dur=60 }
-        required_extra=@('process.command_line')
-        notes='Detection basis: upload-intent egress pattern (T1041/T1573-analog); replaces the previous port-whitelist egress rule. E1<->E3 ownership by entity verified on the lab stack. See docs/correlation-architecture.md S4.'
-        fp=@('curl uploads are common in legitimate automation; intent+connection is the signal, transfer success requires the receipt. No measured false-positive rate is implied.')
+        required_extra=@('process.command_line','process.parent.name')
+        notes='Detection basis: upload-intent egress pattern (T1041/T1573-analog). E1-only (script-spawned curl with upload args); a host/time E1-E3 join is deliberately NOT used - it could misattribute another process connection to this curl. E1<->E3 ownership is the verifier S6 ledger join (GAP when the E3 lacks attribution); transfer success is the sink receipt. See docs/correlation-architecture.md S4.'
+        fp=@('Scripts performing curl uploads (automation/CI) match the intent signal; the transfer claim requires the receipt. No measured false-positive rate is implied.')
     }
     @{
         file='c5-archive-created-then-deleted.eql'; id='C5'

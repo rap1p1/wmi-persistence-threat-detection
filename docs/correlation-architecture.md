@@ -61,12 +61,17 @@
 - Staging creates (incl. generated manifests) do not prove collection; archive
   creation does not prove contents or transfer.
 
-### S4 — curl upload-intent + connection
+### S4 — script-spawned curl with upload arguments (E1-only)
 
-- E1 `curl.exe` whose command line carries upload intent (`-T`, `--upload-file`,
-  `-F`/`--form`, `--data-binary`, `-d`) followed by an E3 owned by that **same curl
-  entity** (verifier-checked; RUN-20261003-01: E3 entity == E1 entity).
-- No port/IP allow/deny lists; "intent + connection", never transfer success.
+EID 1 signal: `curl.exe` launched by a script/interpreter (powershell/cmd/wscript/
+cscript) whose command line carries upload arguments (`-T`, `--upload-file`,
+`-F`/`--form`, `--data-binary`, `-d`). It proves upload INTENT by the invoking
+interpreter — never a successful send. No archive name, IP, port or hostname is
+required. A host/time E1-E3 join is deliberately NOT used (it could attribute another
+process' connection to this curl). E1↔E3 ownership is the verifier's `S6` ledger
+join, reported as **GAP** when the curl E3 lacks attribution (observed in
+RUN-20261003-02: Sysmon E3 carried `Image: <unknown process>` — a local telemetry
+gap); transfer success is proven by the sink receipt.
 
 ### C5 — archive created then deleted
 
@@ -152,7 +157,6 @@ runs; any count-based ("N alerts") claim without per-event reconciliation.
 | S3 | S4 | EID 1 parent WmiPrvSE/scrcons SYSTEM | single event | building block | verified (1) |
 | C3 | S4/S5 | WMI-hosted interpreter -> discovery | host + 30 s; ancestry verifier-checked | TEMPORAL/CONTEXTUAL + verifier join | verified (1) |
 | C4 | S5/S6 | EID 11 non-archive -> zip (same entity) | `process.entity_id` | DIRECT (entity) | verified (1) |
-| S4 | S6 | curl upload-intent E1 -> E3 | `process.entity_id` | DIRECT (entity) | verified (1) |
 | C5 | S7 | EID 11 zip -> EID 23 zip | host + 2 m; same-path verifier-checked | TEMPORAL/CONTEXTUAL + verifier join | verified (1) |
 | Transfer | S6 | manifest ⇄ receipt | canonical/raw sha256 + size + name | SUPPORTED PHASE HANDOFF | verified (ACCEPTED) |
 

@@ -78,10 +78,10 @@ delete (C5), ancestry/binding/path joins at the verifier.
 | S3 SYSTEM Shell/Tool w/ WMI Host Parent | 1 | consumer powershell |
 | C3 WMI-Hosted Interpreter → Discovery | 1 | interpreter → ARP.EXE (host/time; ancestry verified by the verifier via parent entity) |
 | C4 Staging and Archive Creation by a Single Process | 1 | consumer entity: staging create → zip create (EID 11 x2, same entity) |
-| S4 Curl Upload-Intent Process Making a Connection | 1 | curl with `-T`/`--data-binary` then E3 owned by the same entity |
+| S4 Script-Spawned Curl with Upload Arguments | 2 | both curl E1s with upload args (parent powershell); upload intent only |
 | C5 Archive Creation Followed by Archive Deletion | 1 | wdmp.zip create (09:55:34.975) + delete (09:55:39.180); same path (verifier) |
 
-Negative control window (2026-10-03 10:00–10:05Z, idle): **0 matches for all 11 rules**.
+Negative control window (2026-10-03 10:00–10:05Z, idle): **0 matches for all rules** (S4 removed later; its run-01 evaluation was 1).
 
 Live-alert smoke (separate from this run, after import): a registry `ms-settings`
 write+delete in the guest (2026-10-03 10:36:39Z) produced 2 EID 13 events; **R1

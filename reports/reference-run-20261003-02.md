@@ -43,7 +43,7 @@ documented). Sysmon 15.21 + repo config, Elastic Agent shipping, internal sink
 | S3 | PASS | EID 19/20/21 Created 10:46:11.4; EID11 svhw.ps1 10:46:11 (no Hashes; guest hash `01825657…` == staged consumer) | module integrity; binding refs verifier-checked (NotepadFilter / SystemDumpConsumer) |
 | S4 | PASS | notepad 10:46:36.008; consumer 10:46:36.565 (parent WmiPrvSE) | activation; consumer as SYSTEM |
 | S5 | PASS | ARP + info.txt/_manifest.txt staging | in-process queries not independently evidenced |
-| S6 | PASS | zip create; curl E1 x2; E3 to :9180; PS status E3; receipt `ART-07-01` (wdmp.zip 14653 B) | archive create by consumer entity; curl E1↔E3 ownership: **curl E3 lacks process attribution in this window** (S4 no match); receipt = transfer proof |
+| S6 | PASS | zip create; curl E1 x2; E3 to :9180; PS status E3; receipt `ART-07-01` (wdmp.zip 14653 B) | archive create by consumer entity; the curl E3 lacked process attribution in this window; receipt = transfer proof |
 | S7 | PASS | EID23 wdmp.zip 10:46:41.097+; create/delete same path (verifier) | cleanup verified post-run (`ART-08-01`) |
 
 ## 4. Detection results — live alerts (RUN-20261003-02)
@@ -59,7 +59,7 @@ documented). Sysmon 15.21 + repo config, Elastic Agent shipping, internal sink
 | S3 | 1 | 1 | consumer powershell |
 | C3 | 1 | 3 | interpreter → discovery (ancestry verifier-checked) |
 | C4 | 1 | 3 | staging → archive by the consumer entity |
-| S4 | 0 | 0 | **E3 attribution gap**: the curl E3 in this window carries no process identity, so E1↔E3 entity ownership cannot be asserted; the receipt is the transfer evidence |
+| S4 Script-Spawned Curl with Upload Arguments | 2 | both curl E1s with upload args (parent powershell); upload intent fires regardless of the E3 attribution gap; E1<->E3 ownership is a verifier GAP |
 | C5 | 1 | 3 | wdmp.zip create → delete, same path (verifier) |
 
 **That is 12 unique clusters; 23 stored alerts.** Stored-alert counts are **upper
@@ -73,9 +73,11 @@ the window. None of the alert counts imply distinct incidents (building-block mo
 - Operator-launched High-integrity session; the fodhelper UAC mechanism is replayed,
   not a demonstrated Medium→High transition (S4's SYSTEM consumer is the only
   elevation-path evidence).
-- **S4 = 0 in this window** because the curl E3 lacked process attribution — a
-  telemetry-quality finding, not a detection failure; the transfer claim rests on the
-  receipt (name/size/sha256, 14653 B, verified).
+- **S4 E3 attribution gap**: the curl E3 in this window carried `Image: <unknown
+  process>` (Sysmon local attribution failure — verified identical in the guest local
+  log), so the verifier records `GAP S6` for E1↔E3 ownership; S4's upload-intent E1
+  signal still fired (2 clusters). Transfer success rests on the receipt
+  (name/size/sha256, 14653 B, verified).
 - Attempt-1 abort (EID20/21 not generated due to create-or-update semantics on
   leftover objects) recorded as retry; install.ps1 removal hardened and re-verified.
 - Alerts reflect schedule/lookback re-matching; counts are upper bounds (see §4).

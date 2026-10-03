@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Offline packaging checks for WMI-LAB-1 (no Elasticsearch, no Windows runtime).
 
 Covers: Sysmon XML syntax; detection export hygiene (11 rules, deterministic

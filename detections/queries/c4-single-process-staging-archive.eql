@@ -1,0 +1,26 @@
+/*
+ * Detection basis: T1005/T1074.001/T1560.001 staging/archive telemetry by ONE
+ * process entity. The network stage was SPLIT OUT (see S4): this rule proves a
+ * single process staged files then created an archive - nothing about transfer.
+ * Telemetry: Sysmon EID 11 (file create), both events joined by process.entity_id
+ * (verified populated on the lab stack; E11 docs do NOT carry process.parent on
+ * this stack, so no parent/WMI context is required - the chain links the staging
+ * entity to the WMI-hosted interpreter via the run ledger).
+ * Boundary: staging/create does not prove source-file collection; archive creation
+ * does not prove contents or transfer (receipt is the transfer proof).
+ */
+sequence by host.name, process.entity_id with maxspan=2m
+
+  /* Non-archive staging create */
+  [file where
+    winlog.event_id : "11"
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and not file.extension : ("zip", "7z", "rar", "tmp", "log", "etl", "cab", "dll", "exe", "msi", "sys")
+  ]
+
+  /* Archive creation by the same entity */
+  [file where
+    winlog.event_id : "11"
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and file.extension : "zip"
+  ]

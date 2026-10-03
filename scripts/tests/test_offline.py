@@ -70,23 +70,29 @@ class RuleExportTests(unittest.TestCase):
     def test_query_files_match_export(self):
         shipped = {Path(p).name for p in self.query_dir.glob("*.eql")}
         loaded = set()
+        short = {
+            "r1": "r1-ms-settings-open-command-registry-hijack",
+            "c1": "c1-fodhelper-child-interpreter",
+            "s1": "s1-script-host-fodhelper-cmd-parent",
+            "s2": "s2-powershell-hidden-bypass-patterns",
+            "c2": "c2-wmi-subscription-registration-sequence",
+            "r2": "r2-wmi-subscription-registration-activation",
+            "s3": "s3-system-shell-wmi-host-parent",
+            "c3": "c3-wmi-hosted-interpreter-discovery",
+            "c4": "c4-single-process-staging-archive",
+            "s4": "s4-curl-upload-intent-connection",
+            "c5": "c5-archive-created-then-deleted",
+        }
         for r in self.rules:
             name = r["name"].split("]")[0].lstrip("[").lower()
-            short = {
-                "r1": "r1-ms-settings-open-command-registry-hijack",
-                "c1": "c1-fodhelper-child-interpreter",
-                "s1": "s1-script-host-fodhelper-cmd-parent",
-                "s2": "s2-powershell-hidden-bypass-patterns",
-                "c2": "c2-wmi-subscription-registration-sequence",
-                "c3": "c3-wmi-parented-powershell-discovery",
-                "r2": "r2-wmi-consumer-activation-sequence",
-                "s3": "s3-system-shell-wmi-host-parent",
-                "c4": "c4-powershell-staging-zip-network",
-                "s4": "s4-system-powershell-curl-web-ports",
-                "c5": "c5-system-powershell-network-deletion",
-            }[name] + ".eql"
-            loaded.add(short)
+            self.assertIn(name, short, r["name"])
+            loaded.add(short[name] + ".eql")
         self.assertEqual(shipped, loaded)
+
+    def test_building_block_mode_enabled(self):
+        for r in self.rules:
+            self.assertEqual(r.get("building_block_type"), "default", r["name"])
+            self.assertIn("Building block", r.get("setup", ""), r["name"])
 
     def test_threat_payloads_structural_shape(self):
         # regression: PowerShell array-subexpression flattening used to corrupt the
@@ -330,6 +336,104 @@ def test_s3_module_integrity(self):
             failures = []
             vr.validate_run(ledger, d, failures)
             self.assertTrue(any("module integrity mismatch" in f for f in failures), failures)
+
+
+class JoinCheckTests(unittest.TestCase):
+    """Chain-of-evidence joins (ancestry/ownership/path/binding) in the verifier."""
+
+    def _ledger(self):
+        E = "E"
+        PS = "PS"
+        W = "W"
+        return {"run_id": "RUN-20261013-01", "scenario_id": "WMI-LAB-1",
+                "created_utc": "2026-10-13T01:00:00Z", "secrets_policy": "no-secrets-allowed",
+                "artifact_index": [],
+                "stages": [
+                    {"stage": "S2", "host": "wmi", "account": "u", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "1", "ts": "t1", "detail": "fodhelper",
+                         "process_name": "fodhelper.exe", "entity_id": "F", "parent_entity_id": "C"},
+                        {"kind": "event", "event": "1", "ts": "t2", "detail": "wscript",
+                         "process_name": "wscript.exe", "entity_id": "W", "parent_entity_id": "F"},
+                        {"kind": "event", "event": "1", "ts": "t3", "detail": "ps",
+                         "process_name": "powershell.exe", "entity_id": PS, "parent_entity_id": "W"}]},
+                    {"stage": "S3", "host": "wmi", "account": "u", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "19", "ts": "t4", "detail": "f",
+                         "wmi_name": "NF", "wmi_operation": "Created"},
+                        {"kind": "event", "event": "20", "ts": "t5", "detail": "c",
+                         "wmi_name": "SDC", "wmi_operation": "Created"},
+                        {"kind": "event", "event": "21", "ts": "t6", "detail": "b",
+                         "wmi_consumer": "CommandLineEventConsumer.Name=\"SDC\"",
+                         "wmi_filter": "__EventFilter.Name=\"NF\"", "wmi_operation": "Created"}]},
+                    {"stage": "S4", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "1", "ts": "t7", "detail": "consumer",
+                         "process_name": "powershell.exe", "entity_id": PS,
+                         "parent_entity_id": "WMIPRVSE"}]},
+                    {"stage": "S5", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "1", "ts": "t8", "detail": "arp",
+                         "process_name": "arp.exe", "entity_id": "ARP", "parent_entity_id": PS}]},
+                    {"stage": "S6", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "11", "ts": "t9", "detail": "zip",
+                         "file_name": "wdmp.zip", "file_path": r"C:\Windows\Temp\wdmp.zip",
+                         "entity_id": PS},
+                        {"kind": "event", "event": "1", "ts": "t10", "detail": "curl",
+                         "process_name": "curl.exe", "entity_id": "CUR", "parent_entity_id": PS},
+                        {"kind": "event", "event": "3", "ts": "t11", "detail": "c3",
+                         "process_name": "curl.exe", "entity_id": "CUR", "dst_ip": "10.0.0.5"},
+                        {"kind": "event", "event": "3", "ts": "t11b", "detail": "ps-status",
+                         "process_name": "powershell.exe", "entity_id": PS, "dst_ip": "10.0.0.5"},
+                        {"kind": "receipt", "artifact": "ART-07-01-*.json", "detail": "r"}]},
+                    {"stage": "S7", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+                     "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                        {"kind": "event", "event": "23", "ts": "t12", "detail": "del",
+                         "file_name": "wdmp.zip", "file_path": r"C:\Windows\Temp\wdmp.zip",
+                         "entity_id": "CMD"}]},
+                ]}
+
+    def test_join_checks_pass(self):
+        import verify.verify_run_evidence as vr
+
+        failures = []
+        vr.join_checks(self._ledger(), failures)
+        self.assertEqual(failures, [])
+
+    def test_join_mismatch_fails(self):
+        import verify.verify_run_evidence as vr
+
+        ledger = self._ledger()
+        s2 = [s for s in ledger["stages"] if s["stage"] == "S2"][0]
+        for r in s2["evidence_refs"]:
+            if r["process_name"] == "wscript.exe":
+                r["parent_entity_id"] = "WRONG"
+        failures = []
+        vr.join_checks(ledger, failures)
+        self.assertTrue(any("S2 fodhelper->wscript" in f for f in failures), failures)
+
+    def test_archive_path_mismatch_fails(self):
+        import verify.verify_run_evidence as vr
+
+        ledger = self._ledger()
+        s6 = [s for s in ledger["stages"] if s["stage"] == "S6"][0]
+        s7 = [s for s in ledger["stages"] if s["stage"] == "S7"][0]
+        s7["evidence_refs"][0]["file_path"] = r"C:\Windows\Temp\other.zip"
+        failures = []
+        vr.join_checks(ledger, failures)
+        self.assertTrue(any("C5 archive-path equality" in f for f in failures), failures)
+
+    def test_binding_mismatch_fails(self):
+        import verify.verify_run_evidence as vr
+
+        ledger = self._ledger()
+        s3 = [s for s in ledger["stages"] if s["stage"] == "S3"][0]
+        e21 = next(r for r in s3["evidence_refs"] if r["event"] == "21")
+        e21["wmi_consumer"] = 'CommandLineEventConsumer.Name="OTHER"'
+        failures = []
+        vr.join_checks(ledger, failures)
+        self.assertTrue(any("binding refs mismatch" in f for f in failures), failures)
 
 
 if __name__ == "__main__":

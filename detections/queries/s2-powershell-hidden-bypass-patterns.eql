@@ -1,22 +1,20 @@
 /*
- * Detection basis: SAMR/Sigma PowerShell command-line flag corpus (hidden + bypass /
- * encoded); MITRE T1059.001. Scenario-specific flag pattern.
- * Telemetry: Sysmon EID 1, process.command_line (the raw winlog.event_data.CommandLine
- * fallback is NOT mapped on the lab stack and was removed - EQL verification fails on
- * unmapped columns).
- * Boundary: a command-line/context signal; not proof of script contents; WmiPrvSE
- * parent excluded (S3 covers the consumer context).
+ * Detection basis: SIGMA/SAMR PowerShell command-line flag corpus; MITRE T1059.001.
+ * Telemetry: Sysmon EID 1, process.command_line (raw winlog.event_data.CommandLine
+ * is NOT mapped on the lab stack and was removed - EQL verification fails on
+ * unmapped columns). Case-insensitive comparisons.
+ * Predicate: hidden AND (bypass|unrestricted) --OR-- encoded command. The name says
+ * "Encoded": an encoded command matches without requiring hidden.
+ * Boundary: a command-line/context signal, not proof of script contents. Parent-name
+ * exclusions were REMOVED (a parent name does not prove provenance); expect overlap
+ * with S3/R2 for the WMI consumer, documented as one event seen by two signals.
  */
 process where
   winlog.event_id : "1"
-  and not process.parent.name == "WmiPrvSE.exe"
   and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
   and process.name : "powershell.exe"
-  and process.command_line : ("*-WindowStyle*Hidden*", "*-w*hidden*", "*-WindowStyle 0*")
-  and process.command_line : ("*-ExecutionPolicy*Bypass*", "*-ep*bypass*", "*-ep*unrestricted*", "*-EncodedCommand*")
-  /* Parent exclusions retained from the original query */
-  and not process.parent.name in ("services.exe", "MsMpEng.exe")
-  and not process.parent.executable : (
-    "*\\Windows\\System32\\services.exe",
-    "*\\Program Files\\Windows Defender\\*"
+  and (
+    (process.command_line : ("*-WindowStyle*Hidden*", "*-w*hidden*", "*-WindowStyle 0*")
+     and process.command_line : ("*-ExecutionPolicy*Bypass*", "*-ep*bypass*", "*-ep*unrestricted*"))
+    or process.command_line : "*-EncodedCommand*"
   )

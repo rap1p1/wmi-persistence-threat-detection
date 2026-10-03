@@ -55,16 +55,21 @@ The guest needs no internet access; the exfil destination is the internal sink
 ## Sink (internal transfer target)
 
 `scripts/sink_server.py` listens on the lab host (default port 9180, configurable and
-documented per run):
+documented per run). Endpoints match the code exactly:
 
-- `POST /upload` — multipart fields: `file` (the archive), `run` (run id), `host`
-  (host name), `manifest` (in-guest `_manifest.txt` text). The server writes the
-  uploaded file into `evidence/runs/RUN-<id>/` and writes a receipt JSON
-  (`ART-07-01-<run>.json`) with the observed file name/size/sha256 (raw bytes) and
-  the canonical manifest hash (CRLF→LF normalised).
-- `POST /status` — receives PowerShell status/notification JSON (this is the traffic
-  that C4/C5's PowerShell network stage may match; the ledger attributes it).
-- Receipts never carry credentials; run id is validated against the expected pattern.
+- `PUT /artifacts/<run_id>/<artifact_id>/<filename>` — raw body per artifact;
+  `X-WMI-Host` header carries the guest name. The archive is stored under
+  `evidence/runs/RUN-<id>/` and the server maintains the receipt JSON
+  (`ART-07-01-<run>.json`): observed file name/size/sha256 (raw bytes for the zip)
+  and the canonical manifest hash (CRLF→LF normalised) for the ART-06-01 snapshot.
+- `POST /status/<run_id>` — receives PowerShell status/notification JSON (this is
+  the status channel; in this design the archive transfer is curl, so a status
+  message is never read as a transfer — S4 + receipt carry that claim).
+- `GET /health` — liveness.
+- Receipts never carry credentials; run id and artifact id are validated against the
+  expected patterns; filenames are basenames only; upload size is bounded.
+- The transferred archive bytes are `*.zip`-gitignored: the receipt (name/size/sha256)
+  is the committed server-side evidence of the transfer.
 
 ## Reproducibility and hygiene
 

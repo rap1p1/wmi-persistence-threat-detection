@@ -1,5 +1,34 @@
 # Change record
 
+## 2026-10-03 — review-driven rule and verifier revision (post RUN-20261003-01)
+
+- **Ledger/artifact fix for fresh checkouts**: the received archive was referenced in
+  the artifact_index but is `*.zip`-gitignored — removed from the index; the sink
+  receipt (name/size/sha256) is the committed transfer evidence. Verifier now ACCEPTED
+  without the archive file present; the repository validator now scans nested run
+  directories (`evidence/runs/RUN-*/RUN-*.json`) instead of only the top level.
+- **Verifier chain joins**: added `join_checks` over the ledger's stored fields —
+  fodhelper→wscript→powershell ancestry, consumer under WmiPrvSE (parent entity),
+  interpreter→arp ancestry, curl E1↔E3 ownership, archive create/delete same path,
+  C2 binding references (EID21 Consumer/Filter vs EID19/20 names). EQL's inability to
+  bind asymmetric fields was verified on the lab stack (ES 9.5.3) and is documented,
+  not asserted away.
+- **Ledger richness**: refs now store entity / parent entity / file path / destination
+  / registry / WMI reference fields (built by `scripts/build_ledger_run01.py`); the S3
+  module-hash provenance is explicitly labelled "guest probe" (the EID11 event carries
+  no Hashes on this stack) — no longer presented as an event field.
+- **Rules revised per the review** (renames change ids; delete old server-side):
+  R1 → ECS `registry.path`/`value`, SID-free, case-insensitive; C1/S1/S3 → case-
+  insensitive comparisons + host/entity suppression; S2 → encoded branch independent
+  of hidden, parent-name exclusions removed; C2 → name-identity exclusions removed;
+  R2 → deployment-agnostic registration→WMI-hosted interpreter (no notepad/svhw);
+  C3 → host/time correlation with ancestry at the verifier; C4 → single-entity
+  staging→archive (network split out); S4 → curl upload-intent + entity-owned
+  connection (no port/IP lists); C5 → archive create→delete (path via verifier, no
+  PowerShell status dependency). All exports carry `building_block_type=default`.
+- **Re-evaluation**: 11/11 rules match the RUN-20261003-01 window; 0/11 in the idle
+  control window (2026-10-03 10:00–10:05Z). Report §4 updated accordingly.
+
 ## 2026-10-03 — first verified run (RUN-20261003-01)
 
 - Executed the S1–S7 chain on the lab VM `wmi` (Win10 19045, Sysmon 15.21, internal

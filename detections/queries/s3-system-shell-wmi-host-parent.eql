@@ -1,22 +1,23 @@
 /*
  * Detection basis: MITRE T1546.003 DET0086/AN0236 ("anomalous child processes of
  * WmiPrvSE.exe"); Sigma sysmon_wmi_susp_scripting (name-referenced).
- * Telemetry: Sysmon EID 1.
- * Boundary: process-context evidence; connecting the child to the exact subscription
- * requires the WMI-Activity channel / verifier cross-check; permanent-subscription
- * provenance must be verified separately (docs/correlation-architecture.md, R2/S3).
+ * Telemetry: Sysmon EID 1. Case-insensitive comparisons; wildcard fallbacks use the
+ * case-insensitive 'like~' operator on the executable path.
+ * Boundary: SYSTEM-scoped process-context signal (not every WMI execution). Does not
+ * prove the child is driven by a malicious subscription - connecting it to the exact
+ * subscription requires the WMI-Activity channel / verifier cross-check.
  */
 process where
-  winlog.event_id == "1"
-  and winlog.channel == "Microsoft-Windows-Sysmon/Operational"
+  winlog.event_id : "1"
+  and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
   and (
-    process.parent.name in ("WmiPrvSE.exe", "scrcons.exe")
-    or process.parent.executable like "*\\\\WmiPrvSE.exe"
-    or process.parent.executable like "*\\\\scrcons.exe"
+    process.parent.name : ("WmiPrvSE.exe", "scrcons.exe")
+    or process.parent.executable like~ "*\\WmiPrvSE.exe"
+    or process.parent.executable like~ "*\\scrcons.exe"
   )
-  and user.name in ("SYSTEM", "NT AUTHORITY\\SYSTEM")
+  and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
   /* Listed interpreters and tools; legitimate WMI administration can overlap */
-  and process.name in (
+  and process.name : (
     "powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe",
     "mshta.exe", "rundll32.exe", "regsvr32.exe", "bitsadmin.exe",
     "certutil.exe", "msiexec.exe"

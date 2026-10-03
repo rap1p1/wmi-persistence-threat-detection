@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Build RUN-20261003-01 ledger from live Elasticsearch evidence (real es_id/@timestamp).
+"""Build RUN-20261003-01 ledger from live Elasticsearch evidence.
 
-Operator helper for the Phase-3 run; reads the docs that are already proven in the
-run window and writes evidence/runs/RUN-20261003-01/RUN-20261003-01.json. Nothing is
-inferred: every row references an event found in the index (or a captured artifact).
+Every ref stores the real es_id + @timestamp plus the join fields the verifier
+needs (process entity / parent entity / file path / destination / registry /
+WMI references), so ancestry, ownership and binding/path assertions are checked
+offline from the ledger and re-checked against ES by the verifier.
+Credentials: environment only (ES_URL / ES_USER / ES_PASS).
 """
+import base64
 import hashlib
 import json
 import os
@@ -14,14 +17,11 @@ import sys
 import urllib.request
 from pathlib import Path
 
-import base64
-
 ROOT = Path(__file__).resolve().parent.parent
 RUN = "RUN-20261003-01"
-W = {"gte": "2026-10-03T09:54:43Z", "lte": "2026-10-03T09:56:30Z"}
 ES = os.environ["ES_URL"].rstrip("/")
 USER = os.environ.get("ES_USER", "elastic")
-PASS = os.environ["ES_PASS"]  # environment only; never stored in the repository
+PASS = os.environ["ES_PASS"]
 SYS = ".ds-logs-windows.sysmon_operational-*"
 
 CTX = ssl.create_default_context()
@@ -37,13 +37,6 @@ def req(url, body):
         return json.load(resp)
 
 
-def search(filters, size=8):
-    body = {"size": size, "query": {"bool": {"filter": [
-        {"term": {"host.name": "wmi"}}, {"range": {"@timestamp": W}}] + filters}},
-        "sort": [{"@timestamp": "asc"}]}
-    return req(f"{ES}/{SYS}/_search", body)["hits"]["hits"]
-
-
 def gp(doc, path):
     cur = doc
     for part in path.split("."):
@@ -53,130 +46,145 @@ def gp(doc, path):
     return cur
 
 
-def ev(hits):
-    out = []
-    for h in hits:
-        s = h["_source"]
-        out.append({
-            "kind": "event",
-            "es_id": h["_id"],
-            "ts": s.get("@timestamp"),
-            "event": str(gp(s, "event.code") or ""),
-            "detail": (s.get("message") or "").splitlines()[0][:120] if s.get("message") else "",
-        })
-    return out
+def clean(v):
+    if v is None:
+        return None
+    if isinstance(v, str):
+        return v.strip().strip('"')
+    return v
 
 
-def sha256_from_hashes(s):
-    """Parse 'SHA256=...' out of the Sysmon Hashes field text (raw bytes hash)."""
-    msg = s.get("message") or ""
-    m = re.search(r"SHA256=([0-9A-Fa-f]{64})", msg)
-    return m.group(1).upper() if m else None
+# The 21 verified evidence ids (+ the archive-create E11 for C5/path equality).
+REF_IDS = [
+    "AaEBMN8OoLLJxo4Fkbwr",  # S1 cmd setup.bat
+    "AaEBMN8OoLLJxo4FkbxH",  # S2 EID13 (Default)
+    "AaEBMN8OoLLJxo4FkbxL",  # S2 EID13 DelegateExecute
+    "AaEBMN8OoLLJxo4FkbxN",  # S2 fodhelper
+    "AaEBMN8OoLLJxo4Fkby8",  # S2 wscript
+    "AaEBMN8OoLLJxo4FkrwV",  # S2 powershell install.ps1
+    "AaEBMN8OoLLJxo4Ok4eC",  # S3 EID11 svhw.ps1 write
+    "AaEBMN8OoLLJxo4OlomC",  # S3 EID19
+    "AaEBMN8OoLLJxo4OlomI",  # S3 EID20
+    "AaEBMN8OoLLJxo4Oloma",  # S3 EID21
+    "AaEBMN8OoLLJxo6t5RwS",  # S4 notepad
+    "AaEBMN8OoLLJxo69_N8k",  # S4 consumer powershell (WmiPrvSE)
+    "AaEBMN8OoLLJxo_OEQdW",  # S5 ARP.EXE
+    "AaEBMN8OoLLJxo_OEQdp",  # S5 info.txt
+    "AaEBMN8OoLLJxo_OEQeO",  # S5 _manifest.txt
+    "AaEBMN8OoLLJxo_OFAgY",  # S6 EID11 wdmp.zip CREATE
+    "AaEBMN8OoLLJxo_OFAid",  # S6 curl E1 (zip upload)
+    "AaEBMN8OoLLJxo_OFAju",  # S6 curl E1 (manifest upload)
+    "AaEBMN8OoLLJxo_MDTG7",  # S6 curl E3
+    "AaEBMN8OoLLJxo_MDzFL",  # S6 powershell status E3
+    "AaEBMN8OoLLJxo_bHnHx",  # S7 EID23 wdmp.zip delete
+]
+
+docs = {}
+for i in range(0, len(REF_IDS), 50):
+    batch = REF_IDS[i:i + 50]
+    r = req(f"{ES}/{SYS}/_search", {"size": 50, "query": {"ids": {"values": batch}}})
+    for h in r["hits"]["hits"]:
+        docs[h["_id"]] = h["_source"]
 
 
-def canon(p: Path) -> str:
+def ref(es_id, detail_extra=""):
+    s = docs[es_id]
+    wl = s.get("winlog") or {}
+    ed = wl.get("event_data") or {}
+    reg = s.get("registry") or {}
+    head = (s.get("message") or "").splitlines()[0][:110] if s.get("message") else ""
+    return {
+        "kind": "event", "es_id": es_id, "ts": s.get("@timestamp"),
+        "event": str(gp(s, "event.code") or ""),
+        "detail": head + (" " + detail_extra if detail_extra else ""),
+        "process_name": clean(gp(s, "process.name")),
+        "entity_id": clean(gp(s, "process.entity_id")),
+        "parent_entity_id": clean(gp(s, "process.parent.entity_id")),
+        "user": clean(gp(s, "user.name")) or clean(gp(s, "winlog.user.name")),
+        "file_path": clean(gp(s, "file.path")),
+        "file_name": clean(gp(s, "file.name")),
+        "dst_ip": clean(gp(s, "destination.ip")),
+        "dst_port": clean(gp(s, "destination.port")),
+        "registry_path": clean(reg.get("path")),
+        "registry_value": clean(reg.get("value")),
+        "wmi_name": clean(ed.get("Name")),
+        "wmi_operation": clean(ed.get("Operation")),
+        "wmi_consumer": clean(ed.get("Consumer")),
+        "wmi_filter": clean(ed.get("Filter")),
+    }
+
+
+# S3 module-integrity value captured by guest probe (09:56Z); the EID11 doc carries
+# no Hashes on this stack - provenance recorded in the ref detail.
+GUEST_SVHW_SHA256 = "6B90E6F8125A48E63DF9CCA193621A3105E523423ABEA02542D764A379E8C80A"
+
+s3_write = ref("AaEBMN8OoLLJxo4Ok4eC")
+s3_write["file_hash"] = GUEST_SVHW_SHA256
+s3_write["file_hash_provenance"] = "guest probe 2026-10-03T09:56Z; the EID11 event carries no Hashes on this stack"
+stages = [
+    {"stage": "S1", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
+     "input_artifacts": [], "output_artifacts": [],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo4Fkbwr")],
+     "notes": "operator action: setup.bat launched via vmrun (declared; session 0, High integrity)"},
+    {"stage": "S2", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
+     "input_artifacts": [], "output_artifacts": [],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo4FkbxH"), ref("AaEBMN8OoLLJxo4FkbxL"),
+                       ref("AaEBMN8OoLLJxo4FkbxN"), ref("AaEBMN8OoLLJxo4Fkby8"),
+                       ref("AaEBMN8OoLLJxo4FkrwV")],
+     "notes": "registry->fodhelper TEMPORAL/CONTEXTUAL; ancestry fodhelper->wscript->ps via parent.entity_id (verifier)"},
+    {"stage": "S3", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
+     "input_artifacts": ["ART-01-02"], "output_artifacts": [],
+     "evidence_refs": [s3_write,
+                       ref("AaEBMN8OoLLJxo4OlomC"), ref("AaEBMN8OoLLJxo4OlomI"),
+                       ref("AaEBMN8OoLLJxo4Oloma")],
+     "notes": "module integrity: guest svhw.ps1 sha256 == staged consumer raw (ART-01-02); binding refs 21.Consumer/Filter vs 19/20 Name cross-checked by verifier"},
+    {"stage": "S4", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
+     "input_artifacts": [], "output_artifacts": [],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo6t5RwS"), ref("AaEBMN8OoLLJxo69_N8k")],
+     "notes": "activation: console notepad trigger; consumer under WmiPrvSE as SYSTEM (parent entity = WmiPrvSE identity)"},
+    {"stage": "S5", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
+     "input_artifacts": [], "output_artifacts": ["ART-06-01"],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo_OEQdW"), ref("AaEBMN8OoLLJxo_OEQdp"),
+                       ref("AaEBMN8OoLLJxo_OEQeO")],
+     "notes": "in-process queries (Get-CimInstance etc.) not independently evidenced; ARP.EXE parent entity == consumer entity (verifier)"},
+    {"stage": "S6", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
+     "input_artifacts": ["ART-06-01"], "output_artifacts": ["ART-07-01"],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo_OFAgY"), ref("AaEBMN8OoLLJxo_OFAid"),
+                       ref("AaEBMN8OoLLJxo_OFAju"), ref("AaEBMN8OoLLJxo_MDTG7"),
+                       ref("AaEBMN8OoLLJxo_MDzFL"),
+                       {"kind": "receipt", "artifact": "ART-07-01-*.json",
+                        "detail": "sink receipt (server-side); raw sha256 + manifest canonical hash"}],
+     "notes": "archive create (wdmp.zip) by consumer entity; curl E1/E3 entity-owned; PS status channel is NOT the transfer (S4 intent+connection; receipt proves transfer)"},
+    {"stage": "S7", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
+     "input_artifacts": [], "output_artifacts": ["ART-08-01"],
+     "evidence_refs": [ref("AaEBMN8OoLLJxo_bHnHx")],
+     "notes": "wdmp.zip deletion; create/delete same file.path (verifier); Clear-Content history not event-evidenced"},
+]
+
+run_dir = ROOT / "evidence" / "runs" / RUN
+
+
+def canon(p):
     return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest().upper()
 
 
-def raw(p: Path) -> str:
+def raw(p):
     return hashlib.sha256(p.read_bytes()).hexdigest().upper()
 
 
-run_dir = ROOT / "evidence" / "runs" / RUN
-if not run_dir.is_dir():
-    raise SystemExit(f"missing run dir {run_dir}")
-
-reg = search([{"term": {"event.code": "13"}}, {"term": {"process.name": "reg.exe"}}], 3)
-fod = search([{"term": {"event.code": "1"}}, {"term": {"process.name": "fodhelper.exe"}}], 2)
-wsc = search([{"term": {"event.code": "1"}}, {"term": {"process.name": "wscript.exe"}}], 2)
-ps = search([{"term": {"event.code": "1"}}, {"term": {"process.name": "powershell.exe"}},
-             {"wildcard": {"process.command_line": "*install.ps1*"}}], 2)
-wri = search([{"term": {"event.code": "11"}}, {"wildcard": {"file.name": "svhw.ps1"}}], 2)
-e19 = search([{"term": {"event.code": "19"}}], 2)
-e20 = search([{"term": {"event.code": "20"}}], 2)
-e21 = search([{"term": {"event.code": "21"}}], 2)
-ntp = search([{"term": {"event.code": "1"}}, {"term": {"process.name": "notepad.exe"}}], 2)
-wps = search([{"term": {"event.code": "1"}}, {"term": {"process.parent.name": "WmiPrvSE.exe"}}], 2)
-# ARP.EXE is uppercased on disk; EQL ':' matches case-insensitively, ES terms does not
-arpq = req(f"{ES}/{SYS}/_search", {"size": 3,
-    "query": {"bool": {"must": [{"query_string": {"query": "message:\"arp\""}}],
-                       "filter": [{"term": {"host.name": "wmi"}}, {"range": {"@timestamp": W}},
-                                  {"term": {"event.code": "1"}}]}},
-    "sort": [{"@timestamp": "asc"}]})["hits"]["hits"]
-info = search([{"term": {"event.code": "11"}}, {"term": {"file.name": "info.txt"}}], 2)
-manf = search([{"term": {"event.code": "11"}}, {"term": {"file.name": "_manifest.txt"}}], 3)
-curl1 = search([{"term": {"event.code": "1"}}, {"term": {"process.name": "curl.exe"}}], 3)
-curl3 = search([{"term": {"event.code": "3"}}, {"term": {"process.name": "curl.exe"}}], 2)
-ps3 = search([{"term": {"event.code": "3"}}, {"terms": {"process.name": ["powershell.exe"]}}], 3)
-d23 = search([{"term": {"event.code": "23"}}, {"wildcard": {"file.name": "wdmp.zip"}}], 2)
-
-
-def joins(hits, key_details):
-    notes = []
-    for h in hits:
-        s = h["_source"]
-        e = gp(s, "process.entity_id") or "-"
-        pe = gp(s, "process.parent.entity_id") or "-"
-        notes.append(f"{gp(s,'process.name') or '?'} entity={e[:24]} parent={pe[:24]}")
-    return "; ".join(notes)
-
-
-stages = []
-s1 = search([{"term": {"event.code": "1"}}, {"wildcard": {"message": "*setup.bat*"}}], 2)
-stages.append({"stage": "S1", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-               "input_artifacts": [], "output_artifacts": [],
-               "evidence_refs": ev(s1),
-               "notes": "operator action: setup.bat launched via vmrun (declared operator action; session 0, High integrity)"})
-stages.append({"stage": "S2", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-               "input_artifacts": [], "output_artifacts": [],
-               "evidence_refs": ev(reg) + ev(fod) + ev(wsc) + ev(ps),
-               "notes": "registry->fodhelper link TEMPORAL/CONTEXTUAL (no shared field); fodhelper->wscript->ps ancestry via parent.entity_id; registry event for DelegateExecute carries empty Details"})
-wri_rows = ev(wri)
-# Module integrity: the on-disk svhw.ps1 hash. The EID 11 doc carries no Hashes on
-# this stack, so the guest-side value was captured by probe (09:56Z) and equals the
-# staged consumer raw hash (ART-01-02) - recorded here as the evidence value.
-GUEST_SVHW_SHA256 = "6B90E6F8125A48E63DF9CCA193621A3105E523423ABEA02542D764A379E8C80A"
-if wri_rows:
-    wri_rows[0]["file_hash"] = GUEST_SVHW_SHA256
-stages.append({"stage": "S3", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-               "input_artifacts": ["ART-01-02"], "output_artifacts": [],
-               "evidence_refs": wri_rows + ev(e19) + ev(e20) + ev(e21),
-               "notes": "binding references cross-check: 21.Consumer/Filter parsed against 19/20 Name; EID 11 Hash vs ART-01-02 raw = module integrity"})
-stages.append({"stage": "S4", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-               "input_artifacts": [], "output_artifacts": [],
-               "evidence_refs": ev(ntp) + ev(wps),
-               "notes": "activation: notepad fires the filter (WITHIN 5); consumer runs under WmiPrvSE as SYSTEM (direct entity link WmiPrvSE->powershell)"})
-stages.append({"stage": "S5", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-               "input_artifacts": [], "output_artifacts": ["ART-06-01"],
-               "evidence_refs": ev(arpq) + ev(info) + ev(manf),
-               "notes": "discovery via in-process queries (Get-CimInstance etc.) not independently evidenced; arp E1 recorded (ARP.EXE, C3 second box)"})
-stages.append({"stage": "S6", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-               "input_artifacts": ["ART-06-01"], "output_artifacts": ["ART-07-01"],
-               "evidence_refs": ev(curl1) + ev(curl3) + ev(ps3) +
-                   [{"kind": "receipt", "artifact": "ART-07-01-*.json",
-                     "detail": "sink receipt (server-side); transfer integrity by raw sha256 + manifest canonical hash"}],
-               "notes": "curl PUT = archive + manifest; PS Invoke-RestMethod = status channel (C4/C5 network-stage semantics; sink is internal RFC1918 port 9180 -> web-port rules S4/C4/C5 out of scope by design)"})
-stages.append({"stage": "S7", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-               "input_artifacts": [], "output_artifacts": ["ART-08-01"],
-               "evidence_refs": ev(d23),
-               "notes": "cleanup: rd/del of staging + archive; Clear-Content (history) produces no Sysmon event - declared out of the event evidence"})
-
 idx = []
-for aid, rel in (("ART-01-01", "payload/setup.bat"), ("ART-01-02", "payload/consumer.ps1"),
-                 ("ART-01-03", "payload/install.ps1"), ("ART-06-01", "_manifest.txt"),
-                 ("ART-07-01", f"ART-07-01-{RUN}.json"), ("ART-07-02", "wdmp.zip"),
-                 ("ART-08-01", f"ART-08-01-{RUN}.json")):
+for aid, rel, prod, cons in (
+        ("ART-01-01", "payload/setup.bat", "S1", ""),
+        ("ART-01-02", "payload/consumer.ps1", "S3", "S7"),
+        ("ART-01-03", "payload/install.ps1", "S2", "S3"),
+        ("ART-06-01", "_manifest.txt", "S5", "S6"),
+        ("ART-07-01", f"ART-07-01-{RUN}.json", "S6", ""),
+        ("ART-08-01", f"ART-08-01-{RUN}.json", "S7", "")):
     p = run_dir / rel
     if not p.is_file():
-        print("WARN missing artifact file", rel)
-        continue
-    idx.append({"artifact_id": aid, "path": rel,
-                "sha256": raw(p) if p.suffix.lower() == ".zip" else canon(p),
-                "producer_stage": "S3" if aid.startswith("ART-01-02") else
-                                 ("S5" if aid.startswith("ART-06") else
-                                  ("S6" if aid.startswith("ART-07") else
-                                   ("S7" if aid.startswith("ART-08") else "S1"))),
-                "consumer_stage": "S7" if aid.startswith("ART-0") else ""})
+        raise SystemExit(f"missing artifact {rel}")
+    idx.append({"artifact_id": aid, "path": rel, "sha256": raw(p) if p.suffix.lower() == ".zip" else canon(p),
+                "producer_stage": prod, "consumer_stage": cons})
 
 ledger = {"run_id": RUN, "scenario_id": "WMI-LAB-1",
           "created_utc": "2026-10-03T09:54:40Z", "secrets_policy": "no-secrets-allowed",
@@ -184,8 +192,7 @@ ledger = {"run_id": RUN, "scenario_id": "WMI-LAB-1",
 out = run_dir / f"{RUN}.json"
 out.write_text(json.dumps(ledger, indent=2, ensure_ascii=False), encoding="utf-8")
 print("wrote", out)
-print("stages:", [s["stage"] + ":" + s["status"] for s in stages])
-for s in stages:
-    print(" ", s["stage"], "refs=", len(s["evidence_refs"]),
-          "events=", sorted({r.get("event") for r in s["evidence_refs"] if r.get("kind") == "event"}))
+print("stages:", [(s["stage"], s["status"]) for s in stages])
 print("artifacts:", [(a["artifact_id"], a["sha256"][:8]) for a in idx])
+print("refs with entity:", sum(1 for s in stages for r in s["evidence_refs"] if r.get("entity_id")))
+print("refs with file_path:", sum(1 for s in stages for r in s["evidence_refs"] if r.get("file_path")))

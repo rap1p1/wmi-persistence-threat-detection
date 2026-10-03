@@ -1,0 +1,22 @@
+/*
+ * Detection basis: MITRE T1546.003 DET0086/AN0236 (registration -> activation
+ * correlation). DEPLOYMENT-AGNOSTIC: does NOT require a specific trigger binary or
+ * lab script name - any WMI subscription registration followed by a WMI-hosted
+ * interpreter on the same host.
+ * Telemetry: Sysmon EID 19/20/21 + EID 1 (parent WmiPrvSE/scrcons).
+ * Boundary: host/time correlation only (TEMPORAL/CONTEXTUAL); the interpreter's
+ * parent entity vs the registered objects is cross-checked by the verifier. Activation
+ * of an older subscription is still observed by S3.
+ */
+sequence by host.name with maxspan=10m
+  [any where
+    winlog.event_id : ("19", "20", "21")
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and winlog.event_data.Operation : "Created"
+  ]
+  [process where
+    winlog.event_id : "1"
+    and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+    and process.parent.name : ("WmiPrvSE.exe", "scrcons.exe")
+    and process.name : ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe", "rundll32.exe", "regsvr32.exe", "mshta.exe")
+  ]

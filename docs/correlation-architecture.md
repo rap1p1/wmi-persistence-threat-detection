@@ -28,59 +28,52 @@
 ### C2 / R2 — WMI subscription registration and activation
 
 - **Registration join (C2):** ordered EID 19 → 20 → 21 with `Operation=Created` on the
-  same host within 30 s. EQL sequences join **only by keys** — the query cannot bind a
-  value from one event into another, so the *binding-reference* join is an
-  **analyst/server-side cross-check**, documented here and executed by the verifier:
-  - parse `ConsumerName` from `winlog.event_data.Consumer` (EID 21) and match it to
-    the EID 20 `Name`;
-  - parse the filter reference from `winlog.event_data.Filter` (EID 21) and match it
-    to the EID 19 `Name`.
-  - The exact raw string layout of `Consumer` / `Filter` / `Name` must be validated
-    against a real event during the first run before the parse pattern is fixed.
-- **Activation join (R2):** a `Win32_Process` filter whose condition names
-  `notepad.exe` fires when that process starts; the consumer then runs
-  `powershell.exe -ep bypass -w hidden -noni -f <consumer>` under `WmiPrvSE.exe`.
-  - Direct link: E1 `powershell` whose `process.parent.entity_id` equals the E1
-    `process.entity_id` of `WmiPrvSE.exe` (same host).
-  - Attribution of the *execution to the subscription* is
-    `TEMPORAL/CONTEXTUAL ONLY` (filter condition + consumer command line + WMI
-    activation channel in the same window) unless the WMI-Activity channel proves the
-    object references (Microsoft-Windows-WMI-Activity/Operational EID 5860/5861 when
-    enabled — not part of the base Sysmon config).
+  same host within 30 s. Name-based exclusions were **removed** (object names do not
+  prove provenance). EQL sequences join **only by keys** — the query cannot bind a
+  value from one event into another, so the *binding-reference* join is executed by
+  the **acceptance verifier** over the ledger's stored WMI fields: EID 21 `Consumer`
+  text must contain the EID 20 `Name` and EID 21 `Filter` text the EID 19 `Name`
+  (verified for RUN-20261003-01: `SystemDumpConsumer` / `NotepadFilter`).
+- **Activation join (R2):** generalized — any WMI subscription registration
+  (19/20/21 Created) followed within 10 m by a WMI-hosted interpreter (parent
+  WmiPrvSE/scrcons) on the same host. No trigger binary or lab script name is
+  required. Host/time correlation (TEMPORAL); the consumer's parent identity
+  (parent.entity_id) and its child tail (ARP/curl/cmd) are verifier-checked.
 
 ### C1 / R1 / S1 — UAC bypass (fodhelper + ms-settings registry hijack)
 
-- **Process link (direct):** E1 `wscript.exe` (or listed interpreter) →
-  `fodhelper.exe` — joined by `process.parent.entity_id == process.entity_id`.
-  This is the predicate of C1/S1 and equals Sigma `7f741dcf`
-  (`ParentImage\|endswith \fodhelper.exe`).
-- **Registry stage (R1, added to close the coverage gap):** EID 13 ValueSet on
-  `HKCU\Software\Classes\ms-settings\Shell\Open\command` (default value and/or
-  `DelegateExecute` empty), mirrors Sigma `46dd5308`
-  (`TargetObject|endswith \open\command\DelegateExecute`, `Details: (Empty)`).
-- **Registry → fodhelper link:** `TEMPORAL/CONTEXTUAL ONLY` — the registry write
-  (EID 13, actor = the cmd from `setup.bat`) precedes the `fodhelper.exe` start
-  (EID 1) in the same host/account window and targets the exact key fodhelper reads.
-  There is no identity field shared between EID 13 and EID 1; do not claim more.
-- The elevated token (medium → high integrity, `127.` vs `12288` or similar) is not
-  proven by any current event predicate; **treat "UAC bypass succeeded" as asserted by
-  the S2→S3 handoff only if the consumer runs as SYSTEM** (see §4 boundary).
+- **Process link (direct, verifier-checked):** E1 `wscript.exe` →
+  `fodhelper.exe` + E1 `powershell` → wscript — by `parent.entity_id`.
+- **Registry stage (R1):** EID 13 with `registry.path` matching
+  `ms-settings\Shell\Open\command` and value `(Default)`/`DelegateExecute`
+  (ECS `registry.path`/`registry.value` verified on the lab stack; case-insensitive;
+  no SID dependency).
+- **Registry → fodhelper link:** `TEMPORAL/CONTEXTUAL ONLY`.
+- Elevated token is asserted only if the S4 consumer runs as SYSTEM; the S2 mechanism
+  alone (here: an operator-launched High-integrity session) does not prove a
+  Medium→High privilege transition.
 
-### C4 / C5 — staging, network, cleanup
+### C4 — single-entity staging → archive
 
-- **Staging (C4):** EID 11 creates under `\Windows\Temp\*` scoped to the consumer
-  PowerShell entity (SYSTEM). Generated files `info.txt` / `_manifest.txt` satisfy the
-  first predicate — a stage-1 match does not independently prove collection of source
-  documents (addressed in the ledger as a boundary, not a false negative).
-- **E3 attribution (C4/C5/S4):** the exfil process is `curl.exe` (child of the
-  consumer PowerShell). C4/C5 network stages select `powershell.exe`; therefore a
-  C4/C5 match most plausibly corresponds to the PowerShell status/notification traffic,
-  **not** the archive transfer. Any claim that C4/C5 detected the transfer requires
-  per-alert source-event attribution against the ledger. S4 covers curl, but S4 is a
-  single network event with no file linkage.
-- **Cleanup (C5):** EID 23 deletion of `wdmp.zip` after an outbound event does not
-  prove the deleted file was the transferred file; the sink receipt is the only
-  transfer-success evidence.
+- EID 11 file creates **joined by `process.entity_id`** (verified populated on this
+  stack; EID 11 does NOT carry `process.parent` here): a non-archive create followed
+  by a zip create by the same entity within 2 m. No lab folder/file names required.
+- Staging creates (incl. generated manifests) do not prove collection; archive
+  creation does not prove contents or transfer.
+
+### S4 — curl upload-intent + connection
+
+- E1 `curl.exe` whose command line carries upload intent (`-T`, `--upload-file`,
+  `-F`/`--form`, `--data-binary`, `-d`) followed by an E3 owned by that **same curl
+  entity** (verifier-checked; RUN-20261003-01: E3 entity == E1 entity).
+- No port/IP allow/deny lists; "intent + connection", never transfer success.
+
+### C5 — archive created then deleted
+
+- EID 11 (zip) → EID 23 (zip) on the same host within 2 m; the **same-file-path**
+  equality is verifier-checked from the ledger fields (RUN-20261003-01:
+  `C:\Windows\Temp\wdmp.zip` created 09:55:34.975, deleted 09:55:39.180). No archive
+  name hard-coded; deletion does not imply transfer success.
 
 ### Transfer integrity (S6) — the strongest link
 
@@ -100,10 +93,21 @@
   `evidence/runs/<run_id>/payload/` (indexed as `ART-01-02`) and prints its raw
   sha256. `install.ps1` materializes `svhw.ps1` with byte-fidelity (no BOM, no
   line-ending conversion), so the guest file is byte-identical to the staged copy.
-- Join (verifier): the Sysmon EID 11 `Hash` field of the `svhw.ps1` write equals the
-  raw sha256 of the staged consumer — a DIRECT EVENT LINK (hash equality across
-  hosts, §1.4 Module integrity). Text artifacts are indexed canonically in the
-  ledger; this join deliberately uses the raw hash because Sysmon hashes raw bytes.
+- Join (verifier): the RECORDED `svhw.ps1` hash equals the raw sha256 of the staged
+  consumer — a DIRECT EVENT LINK (hash equality across hosts, §1.4 Module integrity).
+  On this stack the EID 11 event does not populate Hashes, so the guest-side value is
+  captured by probe and its provenance is carried in the ledger ref
+  (`file_hash_provenance`) — it is labelled as such, never as an event field.
+- The received archive is evidenced by the sink receipt (name/size/sha256); the
+  archive bytes are `*.zip`-gitignored and not indexed as an artifact (the receipt is
+  the server-side ground truth). Text artifacts are indexed canonically; the module
+  join uses the raw hash because Sysmon hashes raw bytes.
+
+> **EQL join scope (verified on the lab stack, ES 9.5.3):** `sequence by` accepts one
+> field list shared by every step — asymmetric joins (step1.process.entity_id ==
+> step2.process.parent.entity_id, E1↔E3 ownership, create/delete same file.path) are
+> NOT expressible in EQL. The queries stay host/time correlations and the assertions
+> are executed by the acceptance verifier (`join_checks`).
 
 ## 3. Correlation tiers
 
@@ -140,16 +144,17 @@ runs; any count-based ("N alerts") claim without per-event reconciliation.
 
 | Corr | Stage | Input signals | Join keys / window | Expected tier | Status |
 |---|---|---|---|---|---|
-| R1 | S2 | EID 13 ms-settings ValueSet | host + account + key signature | TEMPORAL/CONTEXTUAL (single event) | new rule (gap G-UAC-REG) |
-| C1/S1 | S2 | EID 1 fodhelper -> interpreter | `parent.entity_id` | DIRECT | existing |
-| C2 | S3 | EID 19/20/21 | host + order + 30 s; binding refs cross-checked | TEMPORAL/CONTEXTUAL+ (cross-check) | existing, cross-check documented |
-| R2 | S4 | EID 21 -> EID 1 WmiPrvSE child | host + entity join + window | DIRECT (entity) / context for subscription attribution | new rule (gap G-ACT) |
-| S3 | S4 | EID 1 parent ∈ {WmiPrvSE, scrcons} SYSTEM | single event | building block | existing |
-| C3 | S4/S5 | WMI-parented PS -> discovery | host + 30 s; ancestry not enforced | TEMPORAL/CONTEXTUAL | existing |
-| C4 | S5/S6 | EID 11 staging/zip -> PS E3 | host + window; no file/network link | TEMPORAL/CONTEXTUAL | existing; curl mismatch documented |
-| S4 | S6 | E3 SYSTEM ps/curl web ports | single event | building block | existing |
-| C5 | S7 | SYSTEM PS E3 -> EID 23 | host + window | TEMPORAL/CONTEXTUAL | existing |
-| Transfer | S6 | manifest ⇄ receipt | canonical/raw sha256 + size + name | SUPPORTED PHASE HANDOFF | new verifier assertion + sink |
+| R1 | S2 | EID 13 `registry.path` ms-settings + value | host + key signature | TEMPORAL/CONTEXTUAL (single event) | verified (RUN-20261003-01: 2) |
+| C1/S1 | S2 | EID 1 fodhelper -> interpreter | `parent.entity_id` (verifier) | DIRECT | verified (1) |
+| S2 | S2/S4 | EID 1 PS flags (hidden+bypass or encoded) | single event; no parent-name exclusions | building block | verified (2, incl. consumer) |
+| C2 | S3 | EID 19/20/21 | host + order + 30 s; binding refs verifier-checked | TEMPORAL/CONTEXTUAL + binding check | verified (1) |
+| R2 | S3/S4 | EID 19/20/21 -> WmiPrvSE interpreter | host + 10 m (no lab names) | TEMPORAL/CONTEXTUAL | verified (1) |
+| S3 | S4 | EID 1 parent WmiPrvSE/scrcons SYSTEM | single event | building block | verified (1) |
+| C3 | S4/S5 | WMI-hosted interpreter -> discovery | host + 30 s; ancestry verifier-checked | TEMPORAL/CONTEXTUAL + verifier join | verified (1) |
+| C4 | S5/S6 | EID 11 non-archive -> zip (same entity) | `process.entity_id` | DIRECT (entity) | verified (1) |
+| S4 | S6 | curl upload-intent E1 -> E3 | `process.entity_id` | DIRECT (entity) | verified (1) |
+| C5 | S7 | EID 11 zip -> EID 23 zip | host + 2 m; same-path verifier-checked | TEMPORAL/CONTEXTUAL + verifier join | verified (1) |
+| Transfer | S6 | manifest ⇄ receipt | canonical/raw sha256 + size + name | SUPPORTED PHASE HANDOFF | verified (ACCEPTED) |
 
 ## 6. Sensor / ingest checklist (before validating any correlation)
 

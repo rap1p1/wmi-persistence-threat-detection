@@ -91,28 +91,27 @@ def validate():
             if not any(p.startswith(prefix + "-") for p in shipped):
                 errors.append(f"rule {r.get('name')}: no matching query file")
 
-    # ---- run ledgers ----------------------------------------------------------
+    # ---- run ledgers (nested: evidence/runs/RUN-<id>/RUN-<id>.json) ---------------
     runs_dir = ROOT / "evidence" / "runs"
-    schemas = list(runs_dir.glob("RUN-*.json"))  # ledger files only (schema is RUN-schema.json)
-    for ledger_path in [p for p in schemas if p.name != "RUN-schema.json"]:
+    for ledger_path in sorted(runs_dir.glob("RUN-*/RUN-*.json")):
         try:
             ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            errors.append(f"ledger {ledger_path.name}: {exc}")
+            errors.append(f"ledger {ledger_path.relative_to(ROOT)}: {exc}")
             continue
         for e in el.ledger_validate(ledger):
-            errors.append(f"ledger {ledger_path.name}: {e}")
+            errors.append(f"ledger {ledger_path.relative_to(ROOT)}: {e}")
         run_dir = ledger_path.parent
         for e in el.artifact_violations(ledger, run_dir):
-            errors.append(f"ledger {ledger_path.name}: {e}")
+            errors.append(f"ledger {ledger_path.relative_to(ROOT)}: {e}")
         for receipt in run_dir.glob("ART-07-01-*.json"):
             try:
                 receipt_obj = json.loads(receipt.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
-                errors.append(f"receipt {receipt.name}: malformed JSON")
+                errors.append(f"receipt {receipt.relative_to(ROOT)}: malformed JSON")
                 continue
             for e in el.receipt_validate(receipt_obj):
-                errors.append(f"receipt {receipt.name}: {e}")
+                errors.append(f"receipt {receipt.relative_to(ROOT)}: {e}")
 
     # ---- screenshots manifest ----------------------------------------------------
     shots = ROOT / "evidence" / "sanitized-screenshots"

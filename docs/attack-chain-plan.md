@@ -17,11 +17,11 @@ collection, staging, archiving, exfil to an internal sink, and cleanup.
 |---|---|---|---|
 | S1 | Entry: user double-clicks `setup.bat` | T1059.003 (context) | none dedicated (operator action declared) |
 | S2 | UAC bypass: ms-settings registry hijack → fodhelper → script host → elevated PowerShell | T1548.002, T1059.005/.001 | R1 (registry), C1/S1 (fodhelper child), S2 (PS flags) |
-| S3 | Persistence install: write consumer, register WMI filter/consumer/binding | T1546.003 | C2 (19/20/21), S2 excluded WmiPrvSE parent |
-| S4 | Activation: notepad.exe fires filter → consumer under WmiPrvSE as SYSTEM | T1546.003 | R2 (activation chain), S3, C3 (discovery part) |
-| S5 | Discovery + collection + staging + manifest | T1082/T1016/T1087.001, T1005/T1074.001 | C3, C4 stage 1 |
-| S6 | Archive + exfil to internal sink (curl) + status message (PS) | T1560.001, T1567 surrogate | C4 (status channel), S4 (curl E3), receipt (transfer) |
-| S7 | Cleanup: delete staging + archive; history clearing | T1070.004 | C5 |
+| S3 | Persistence install: write consumer, register WMI filter/consumer/binding | T1546.003 | C2 (19/20/21); the consumer PS also matches S2/S3/R2 (overlap documented) |
+| S4 | Activation: notepad.exe fires filter → consumer under WmiPrvSE as SYSTEM | T1546.003 | R2 (registration→interpreter), S3, C3 (discovery part) |
+| S5 | Discovery + collection + staging + manifest | T1082/T1016/T1087.001, T1005/T1074.001 | C3 (discovery), staging creates feed C4 |
+| S6 | Archive + exfil to internal sink (curl) + status message (PS) | T1560.001, T1567 surrogate | C4 (archive create), S4 (curl upload-intent + connection), receipt (transfer) |
+| S7 | Cleanup: delete staging + archive; history clearing | T1070.004 | C5 (archive create → delete; same-path verifier-checked) |
 
 ## Environment
 

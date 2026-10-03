@@ -103,6 +103,89 @@ def _load_ledger(run_id):
     return ledger, directory
 
 
+def _find_ref(stages, stage, event, process=None, file_name=None):
+    for r in stages.get(stage, {}).get("evidence_refs", []):
+        if r.get("kind") != "event":
+            continue
+        if str(r.get("event")) != str(event):
+            continue
+        if process and (r.get("process_name") or "").lower() != process.lower():
+            continue
+        if file_name and not (r.get("file_name") or "").lower().endswith(file_name.lower()):
+            continue
+        return r
+    return None
+
+
+def join_checks(ledger, failures):
+    """Offline chain-of-evidence joins over the ledger's stored fields.
+
+    These assertions implement what EQL itself cannot express (verified on the lab
+    stack, ES 9.5.3): 'sequence by' cannot map step1.process.entity_id onto
+    step2.process.parent.entity_id. Missing join fields on a PASS stage are failures.
+    """
+    stages = {s.get("stage"): s for s in ledger.get("stages", [])}
+
+    def need(stage, event, label, process=None, file_name=None):
+        r = _find_ref(stages, stage, event, process, file_name)
+        if r is None:
+            failures.append(f"join {stage}: missing {label}")
+            return None
+        return r
+
+    def eq(ref_a, field_a, ref_b, field_b, label):
+        if ref_a is None or ref_b is None:
+            return
+        va, vb = ref_a.get(field_a), ref_b.get(field_b)
+        if not va or not vb:
+            failures.append(f"join {label}: missing join fields ({field_a} / {field_b})")
+        elif va != vb:
+            failures.append(f"join {label}: {va} != {vb}")
+
+    # S2 ancestry: fodhelper -> wscript -> powershell by parent.entity_id
+    fod = need("S2", "1", "fodhelper E1", process="fodhelper.exe")
+    wsc = need("S2", "1", "wscript E1", process="wscript.exe")
+    psi = need("S2", "1", "install powershell E1", process="powershell.exe")
+    eq(wsc, "parent_entity_id", fod, "entity_id", "S2 fodhelper->wscript")
+    eq(psi, "parent_entity_id", wsc, "entity_id", "S2 wscript->powershell")
+
+    # S4: consumer runs under WmiPrvSE (parent entity present)
+    con = need("S4", "1", "consumer powershell E1", process="powershell.exe")
+    if con and not con.get("parent_entity_id"):
+        failures.append("join S4: consumer parent_entity_id missing (WmiPrvSE link)")
+
+    # C3 ancestry: discovery parent entity == interpreter entity
+    arp = need("S5", "1", "arp E1", process="arp.exe")
+    eq(arp, "parent_entity_id", con, "entity_id", "C3 interpreter->arp")
+
+    # S6 ownership: curl E1 (archive upload) owns the curl E3; PS E3 owned by consumer
+    curl1 = need("S6", "1", "curl E1", process="curl.exe")
+    curl3 = need("S6", "3", "curl E3", process="curl.exe")
+    eq(curl1, "entity_id", curl3, "entity_id", "S4 curl E1->E3")
+    ps3 = need("S6", "3", "powershell status E3", process="powershell.exe")
+    eq(ps3, "entity_id", con, "entity_id", "S6 status-channel owner")
+
+    # C5: archive create and delete reference the same file path
+    zc = need("S6", "11", "archive create E11", file_name="wdmp.zip")
+    zd = need("S7", "23", "archive delete E23", file_name="wdmp.zip")
+    eq(zc, "file_path", zd, "file_path", "C5 archive-path equality")
+
+    # C2 binding: EID21 Consumer/Filter text must reference the EID20/EID19 names
+    e19 = need("S3", "19", "WMI 19")
+    e20 = need("S3", "20", "WMI 20")
+    e21 = need("S3", "21", "WMI 21")
+    if e19 and e20 and e21:
+        n19, n20 = (e19.get("wmi_name") or ""), (e20.get("wmi_name") or "")
+        cons, filt = (e21.get("wmi_consumer") or ""), (e21.get("wmi_filter") or "")
+        if not (n19 and n20 and cons and filt):
+            failures.append("join C2: WMI binding fields missing in ledger refs")
+        elif n19 not in filt or n20 not in cons:
+            failures.append(f"join C2: binding refs mismatch (19={n19!r} in filter={filt!r}; "
+                            f"20={n20!r} in consumer={cons!r})")
+        else:
+            print(f"  ok  C2 binding refs: filter->{n19}, consumer->{n20}")
+
+
 def validate_run(ledger, directory, failures):
     """Offline, ledger-derived assertions. `failures` is an append-only list."""
     failures.extend("ledger: " + e for e in el.ledger_validate(ledger))
@@ -131,10 +214,9 @@ def validate_run(ledger, directory, failures):
                 failures.append(f"stage {name}: expected >= {minimum} event {code} ({hint}), "
                                 f"got {got}")
 
-    # S3 module integrity: the EID 11 file hash of the materialized svhw.ps1 must
-    # equal the raw sha256 of the staged consumer (ART-01-02). Sysmon hashes raw
-    # bytes, so this join uses the raw hash even though text artifacts are indexed
-    # canonically (evidence/runs/README.md).
+    # S3 module integrity: the RECORDED svhw.ps1 hash must equal the raw sha256 of
+    # the staged consumer (ART-01-02). Provenance of the recorded hash is carried in
+    # the ref (guest probe; the EID11 event on this stack does not populate Hashes).
     s3 = stages["S3"]
     hash_ref = next((r for r in (s3.get("evidence_refs") or [])
                      if r.get("kind") == "event" and str(r.get("event")) == "11"
@@ -143,8 +225,9 @@ def validate_run(ledger, directory, failures):
                   if a.get("artifact_id") == "ART-01-02"), None)
     if hash_ref:
         ref_hash = str(hash_ref["file_hash"]).upper()
+        provenance = hash_ref.get("file_hash_provenance") or "not stated"
         if entry is None:
-            failures.append("S3: EID 11 file_hash recorded but ART-01-02 "
+            failures.append("S3: recorded svhw.ps1 file_hash but ART-01-02 "
                             "(staged consumer) missing from artifact_index")
         else:
             staged = directory / entry["path"]
@@ -152,10 +235,13 @@ def validate_run(ledger, directory, failures):
                 failures.append(f"S3: staged consumer file missing: {entry['path']}")
             elif el.raw_sha256(staged.read_bytes()) != ref_hash:
                 failures.append(f"S3: module integrity mismatch - staged consumer "
-                                f"raw hash != EID 11 hash {ref_hash}")
+                                f"raw hash != recorded svhw.ps1 hash {ref_hash}")
             else:
-                print(f"  ok  S3 module integrity: EID 11 hash == staged consumer "
-                      f"({ref_hash[:16]}...)")
+                print(f"  ok  S3 module integrity: recorded svhw.ps1 hash == staged "
+                      f"consumer ({ref_hash[:16]}...; {provenance})")
+
+    # chain-of-evidence joins over the ledger fields (EQL cannot bind these)
+    join_checks(ledger, failures)
 
     # S6: transfer integrity from the receipt artifact (offline-verifiable).
     receipt_row = None

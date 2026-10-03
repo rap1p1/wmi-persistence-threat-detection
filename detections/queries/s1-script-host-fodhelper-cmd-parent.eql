@@ -1,12 +1,13 @@
 /*
  * Detection basis: Sigma proc_creation_win_uac_bypass_fodhelper family (C1 overlaps);
  * MITRE T1548.002 DET0388/AN1094 (process-context half). Script-host signal.
- * Telemetry: Sysmon EID 1.
- * Boundary: observes the script host itself, not a required PowerShell child; overlaps
- * C1 on the same event (alert counts are not independent stage counts).
+ * Telemetry: Sysmon EID 1. Case-insensitive comparisons.
+ * Boundary: building block - observes the script host itself; the fodhelper branch
+ * overlaps C1 on the same event (the two alerts are NOT independent steps), and the
+ * cmd-parent branch has lower specificity. Not a required PowerShell child.
  */
 process where
-  winlog.event_id == "1"
-  and winlog.channel == "Microsoft-Windows-Sysmon/Operational"
-  and process.name in ("wscript.exe", "cscript.exe")
-  and process.parent.name in ("fodhelper.exe", "cmd.exe")
+  winlog.event_id : "1"
+  and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
+  and process.name : ("wscript.exe", "cscript.exe")
+  and process.parent.name : ("fodhelper.exe", "cmd.exe")

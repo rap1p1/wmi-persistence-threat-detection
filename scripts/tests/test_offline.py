@@ -239,5 +239,33 @@ class VerifierLogicTests(unittest.TestCase):
         self.assertTrue(any("NOT RUN" in f for f in failures))
 
 
+class TimestampToleranceTests(unittest.TestCase):
+    def test_within_tolerance(self):
+        self.assertTrue(el.ts_within("2026-10-13T01:00:05.100Z",
+                                     "2026-10-13T01:00:05.200Z", 1.0))
+        self.assertTrue(el.ts_within("2026-10-13T01:00:05Z",
+                                     "2026-10-13T01:00:07Z", 5.0))
+
+    def test_outside_tolerance(self):
+        self.assertFalse(el.ts_within("2026-10-13T01:00:05Z",
+                                      "2026-10-13T01:00:20Z", 5.0))
+
+    def test_unparseable_returns_none(self):
+        self.assertIsNone(el.ts_within("12:34:5xZ", "2026-10-13T01:00:05Z"))
+        self.assertIsNone(el.ts_within("2026-10-13T01:00:05Z", ""))
+
+    def test_es_verify_noop_without_creds(self):
+        import os
+        import verify.verify_run_evidence as vr
+        from unittest import mock
+
+        ledger = {"stages": [{"stage": "S1", "evidence_refs": [
+            {"kind": "event", "es_id": "x", "ts": "2026-10-13T01:00:05Z"}]}]}
+        failures = []
+        with mock.patch.dict(os.environ, {"ES_URL": "", "ES_PASS": ""}):
+            self.assertEqual(vr.es_verify(ledger, failures), 0)
+        self.assertEqual(failures, [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

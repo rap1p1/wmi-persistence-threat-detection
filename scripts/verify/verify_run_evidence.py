@@ -9,9 +9,11 @@ Checks, per run (S1..S7):
   - artifact_index: files exist, canonical/raw hashes match;
   - S6 transfer integrity: sink receipt exists, sink_files non-empty, recorded
     sha256/size/name consistent with the in-guest manifest snapshot;
-  - when ES creds are present (ES_URL/ES_USER/ES_PASS env), re-verifies key events by
-    es_id and the joins (fodhelper->wscript ancestry; WmiPrvSE->powershell ancestry;
-    EID 21 binding references 20/19 names; curl E3 process attribution).
+  - when ES creds are present (ES_URL/ES_USER/ES_PASS env), re-fetches every
+    recorded event by es_id from Elasticsearch and confirms the stored @timestamp
+    matches the ledger row (drift or a missing record fails acceptance). Process
+    ancestry and WMI-binding-join cross-checks are performed against the ledger
+    evidence (see docs/correlation-architecture.md), not re-derived here.
 
 Fail-fast on unknown run ids. Regression over all recorded runs with --all.
 No credentials in code; ES creds come from the environment only.
@@ -35,6 +37,9 @@ PLACEHOLDER_TS = re.compile(r"(:\d{2}:5x|:xZ|T00:00:00Z$|TODO|FIXME)", re.I)
 
 # Mandatory stages for a full campaign run.
 MANDATORY = {"S1", "S2", "S3", "S4", "S5", "S6", "S7"}
+
+# Backing store for the Sysmon channel (re-fetch by es_id during ES re-verification).
+SYS_INDEX = ".ds-logs-windows.sysmon_operational-*"
 
 # Per-stage minimum event evidence (event code, required count, human hint).
 STAGE_EVENTS = {
@@ -164,6 +169,60 @@ def validate_run(ledger, directory, failures):
         failures.append("S7: ART-08-01 cleanup verification artifact missing")
 
 
+def es_verify(ledger, failures, tolerance_s=5.0):
+    """Re-fetch each recorded event by es_id from Elasticsearch and confirm the
+    stored @timestamp still matches the ledger row (the index is the source of
+    truth; a drifted/missing record fails acceptance). Credentials come from the
+    environment only; without them this is a no-op (callers fall back to
+    ledger-only mode).
+    """
+    import base64
+    import os
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    if not _es_available():
+        return 0
+    es = os.environ["ES_URL"].rstrip("/")
+    user = os.environ.get("ES_USER", "elastic")
+    password = os.environ["ES_PASS"]
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    auth = "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()
+    checked = 0
+    for stage in ledger.get("stages", []):
+        for ref in (stage.get("evidence_refs") or []):
+            if ref.get("kind") != "event" or not ref.get("es_id"):
+                continue
+            es_id, recorded = ref["es_id"], ref.get("ts") or ""
+            req = urllib.request.Request(
+                f"{es}/{SYS_INDEX}/_doc/{es_id}",
+                headers={"Authorization": auth})
+            try:
+                with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+                    src = json.load(resp).get("_source") or {}
+                actual = src.get("@timestamp")
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    failures.append(f"ES: event {es_id} (stage {stage.get('stage')}) not found")
+                else:
+                    failures.append(f"ES: HTTP {exc.code} fetching {es_id}")
+                continue
+            except Exception as exc:
+                failures.append(f"ES: connection error fetching {es_id}: {exc}")
+                continue
+            checked += 1
+            if not recorded:
+                failures.append(f"ES: event {es_id} has no recorded ts to compare")
+                continue
+            if not el.ts_within(recorded, actual or "", tolerance_s):
+                failures.append(f"ES: event {es_id} timestamp drift recorded={recorded} "
+                                f"actual={actual}")
+    return checked
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_id", nargs="?")
@@ -189,17 +248,20 @@ def main(argv=None):
         print(f"== {run_id} acceptance verification ==")
         failures = []
         validate_run(ledger, directory, failures)
-        for f in failures:
-            print(f"  FAIL {f}")
+        checked = 0
         if args.offline or not _es_available():
             if not failures:
                 print("  note ledger-only mode: ES re-verification not performed "
-                      "(set ES_URL/ES_USER/ES_PASS to run it)")
+                      "(set ES_URL/ES_USER/ES_PASS to run the full acceptance)")
             tag = "ACCEPTED (ledger-only)" if not failures else "FAILED"
         else:
-            print("  note ES re-verification is implemented as a ledger-backed step; "
-                  "per-run event re-fetch performed by scripts/verify/fetch_evidence_ids.py")
+            checked = es_verify(ledger, failures)
+            if not failures:
+                print(f"  ok  ES re-verification: {checked} event(s) re-fetched, "
+                      "timestamps matched")
             tag = "ACCEPTED" if not failures else "FAILED"
+        for f in failures:
+            print(f"  FAIL {f}")
         print(f"RESULT: {tag}")
         if failures:
             global_failures.append((run_id, failures))

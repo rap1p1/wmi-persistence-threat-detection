@@ -24,6 +24,22 @@ def canon_sha256(data: bytes) -> str:
     return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest().upper()
 
 
+def ts_within(recorded: str, actual: str, tolerance_s: float = 5.0):
+    """True if recorded and actual ISO-8601 Z timestamps differ by <= tolerance.
+
+    Used by the verifier to re-verify a ledger event ref against the event re-read
+    from Elasticsearch (the index is the source of truth; the ledger row must agree).
+    Returns None when either value is not a parseable ISO-8601 Z timestamp.
+    """
+    from datetime import datetime, timezone
+    try:
+        a = datetime.fromisoformat(recorded.replace("Z", "+00:00")).astimezone(timezone.utc)
+        b = datetime.fromisoformat(actual.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except (ValueError, AttributeError):
+        return None
+    return abs((a - b).total_seconds()) <= tolerance_s
+
+
 def raw_sha256(data: bytes) -> str:
     """Raw-byte hash for binary artifacts (zip etc.), where LF-normalising corrupts."""
     return hashlib.sha256(data).hexdigest().upper()

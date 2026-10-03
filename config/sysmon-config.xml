@@ -25,14 +25,11 @@
       <TargetFilename condition="end with">.rar</TargetFilename>
     </FileCreate>
 
-    <NetworkConnect onmatch="exclude">
-    </NetworkConnect>
-
-    <RegistryEvent onmatch="exclude">
-    </RegistryEvent>
-
-    <WmiEvent onmatch="exclude">
-    </WmiEvent>
+    <!-- Network, Registry and WMI sections are intentionally absent: for event
+         types without a section Sysmon logs all events (EID 3, 12/13/14 and
+         19/20/21 pass through). Empty onmatch="exclude" blocks were removed to
+         avoid the ambiguous "exclude nothing vs exclude all" runtime behavior.
+         A per-run probe still must prove 19/20/21 reach the channel. -->
 
     <!-- FileDelete (EventID 23): Staging paths + sensitive extensions -->
     <FileDelete onmatch="include">

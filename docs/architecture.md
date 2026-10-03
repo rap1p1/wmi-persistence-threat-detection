@@ -43,10 +43,10 @@ The guest needs no internet access; the exfil destination is the internal sink
 - `<FileCreate>` includes `\Windows\Temp\`, `\Users\Public\`, `\ProgramData\`,
   `\AppData\Local\Temp\` and script/archive extensions; `<FileDelete>` mirrors those
   paths and the .zip/.ps1/.vbs extensions.
-- `<WmiEvent onmatch="exclude">` is intentionally empty; the empty exclude list is
-  expected to log all WMI events, and the first run must **prove** EID 19/20/21 reach
-  the channel (local + ingested) before any C2 claim.
-- `<NetworkConnect>` and `<RegistryEvent>` are pass-all (empty exclude lists).
+- Network, Registry and WMI sections are deliberately absent from
+  `<EventFiltering>`: for event types without a section Sysmon logs all events
+  (EID 3; registry 12/13/14; WMI 19/20/21). The first run must still **prove** EID
+  19/20/21 reach the channel (local + ingested) before any C2/R2 claim.
 - Image-load (EID 7), process-access (EID 10), DNS and file-delete-archive are not
   part of this chain's evidence; if a future chain needs them, add +
   re-verify, never assume.

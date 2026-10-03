@@ -1,16 +1,25 @@
-# Original scenario artifacts
+# scripts — evidence, verification and tooling
 
-The executable files in this directory are retained unchanged from baseline commit `43a7141c7753058e58bfb0894d4123236ce3d1b9`. This map supports static review and event attribution; it does not provide deployment instructions.
+| Path | Purpose |
+|---|---|
+| `evidence_lib.py` | Pure evidence helpers (canonical/raw hashing, ledger validation, receipt checks) shared by the verifier and the offline tests. Stdlib only. |
+| `verify/verify_run_evidence.py` | Acceptance verifier: ledger structure, stage evidence, artifact hashes, transfer receipt, fail-fast unknown runs, `--all` regression. |
+| `verify/fetch_evidence_ids.py` | Fetches real `es_id`/`@timestamp` from Elasticsearch for ledger rows (env-only credentials). |
+| `sink_server.py` | Internal transfer sink: receives artifacts over HTTP PUT, writes them into a run dir and produces the ART-07-01 receipt (transfer integrity). |
+| `rules/gen_rules_ndjson.ps1` | Deterministic rule export generator (rule_id = SHA-256 of name, v5 shape) → `detections/exports/wmi-rules.ndjson`. |
+| `runbooks/README.md` | Operator runbook: stages, gates, evidence capture, cleanup. |
+| `tests/test_offline.py` | Offline unit tests (rule-id uniqueness, ledger schema negative cases, verifier negative cases, receipt negatives). |
 
-| File / region | Responsibility | Evidence relationship |
-| --- | --- | --- |
-| `setup.bat` | Launcher, temporary script-host artifact, privilege-related registry activity, temporary-artifact cleanup | Registry/process events and C1/S1/S2 |
-| `payload.ps1`: outer script | Consumer-script materialization and named subscription management | File events and WMI 19/20/21 |
-| `payload.ps1`: embedded script, discovery | Host/network/account information | Process/script telemetry and discovery output |
-| Embedded script, collection/staging | Candidate file selection, history copies, manifest | File provenance and staging events |
-| Embedded script, archive/transmission | ZIP creation, archive transmission, separate notifications | File/process/network attribution and receiver evidence |
-| Embedded script, cleanup | Staging/archive deletion and history operation | File deletion evidence; not proof of complete eradication |
+CLI entry points:
 
-No refactor, execution change, or functional improvement is included in the documentation refresh. The absent optional `setup.hta` is documented as a repository completeness gap; no replacement is supplied.
+```sh
+python scripts/tests/test_offline.py
+python tools/validate_repository.py
+python scripts/verify/verify_run_evidence.py --all --offline
+python scripts/verify/verify_run_evidence.py RUN-<date>-<seq>
+python scripts/sink_server.py --port 9180
+powershell -ExecutionPolicy Bypass -File scripts/rules/gen_rules_ndjson.ps1
+```
 
-See [scenario analysis](../docs/scenario-analysis.md) for technique scope and [case study](../docs/case-study.md) for what was actually observed.
+Secrets (Elastic URL/user/password) come from the environment only and never appear
+in code, ledgers, receipts or exports.

@@ -1,72 +1,84 @@
-# WMI Persistence: Execution Evidence and Elastic Detections
+# WMI Persistence + UAC Bypass — Evidence-Driven Detection Lab
 
-A Windows lab investigating a local intrusion scenario through **WMI subscription events, process activity, file operations, and Elastic alerts**.
+A personal-host (workgroup, no domain) lab that replays a local intrusion chain —
+normal user runs a script → fodhelper UAC bypass → WMI event-subscription
+persistence → activation → discovery/collection/archive → exfiltration to an internal
+sink → cleanup — and evaluates it with Elastic Security EQL rules under the same
+evidence discipline as the reference C0015 lab: every claim maps to a run ledger row
+with a real Elasticsearch `_id` + `@timestamp`, and acceptance is decided by an
+offline verifier, not by prose.
 
-The scenario combines script execution, a Fodhelper-based UAC bypass attempt, WMI persistence, discovery, local collection, ZIP archiving, web-service transmission, and cleanup. The engineering question is how much of that story can be established from the collected evidence.
+**Windows 10/11 · Sysmon · Elastic Agent · Elasticsearch/Kibana · EQL**
 
-**Windows · Sysmon · Elastic Agent · Elasticsearch/Kibana · EQL**
+## Status
 
-## Results at a glance
+- Phase 0 gap audit: complete (2026-10-03) — detection-basis, coverage and overclaim
+  gaps identified and closed by design (see CHANGELOG.md).
+- Phase 1 evidence architecture + Phase 2 restructure: implemented in this tree
+  (layout below). Offline tests and repository validation pass.
+- Phase 3 verified run: **pending the lab VM** — see `scripts/runbooks/README.md`
+  and the VM readiness checklist in CHANGELOG.md. No acceptance claim is made until a
+  run ledger exists and the verifier says ACCEPTED.
+- The April-2026 screenshots are archived as **historical material**, not run
+  evidence: `evidence/sanitized-screenshots/`.
 
-- Nine EQL rules: **four sequences and five single-event detections**.
-- Historical screenshot evidence includes WMI binding creation, discovery process execution, staging/ZIP creation, curl network activity, ZIP deletion, and **10 alerts across the nine rules**.
-- Raw event exports and source-event references for every alert are not yet published. Detection accuracy and latency have not been measured against a labeled baseline.
+## The chain and its rules
 
-![Historical Elastic alert overview](docs/evidence/alerts-overview.png)
+| Stage (docs/attack-chain-plan.md) | Technique | Observable telemetry | Rules |
+|---|---|---|---|
+| S1 Entry (user starts `setup.bat`) | — (declared operator action) | E1 cmd | — |
+| S2 UAC bypass (`ms-settings` hijack → fodhelper → script host → elevated PS) | T1548.002, T1059.005/.001 | EID 13 registry, E1 fodhelper/wscript/PS | R1, C1, S1, S2 |
+| S3 WMI persistence install (filter/consumer/binding) | T1546.003 | EID 11 consumer, EID 19/20/21 | C2 |
+| S4 Activation (notepad fires the filter → consumer under WmiPrvSE, SYSTEM) | T1546.003 | E1 notepad, E1 WmiPrvSE→PS | R2, S3, C3 |
+| S5 Discovery + collection + staging + manifest | T1082/T1016/T1005/T1074.001 | E1 arp, EID 11 staging | C3, C4 (stage 1) |
+| S6 Archive + exfil to the internal sink (curl) + PS status | T1560.001, T1567 surrogate | EID 11 zip, E1/E3 curl, E3 PS, sink receipt | S4, C4 (status channel), receipt |
+| S7 Cleanup | T1070.004 | E1 cmd, EID 23 | C5 |
 
-The screenshot records alerts observed in April 2026. It is not evidence of ten distinct incidents or nine independently validated techniques. Exported suppression settings can group matching results. Current rule titles have been corrected; screenshots retain the historical names.
-
-## Attack-to-detection mapping
-
-The table connects the scenario's behavior to the telemetry used by the implemented rules. The retained alert overview contains a result for every listed rule; evidence details are in the [full mapping](docs/attack-detection-mapping.md).
-
-| Scenario behavior | Telemetry used by detection | Implemented rules | Recorded result |
-| --- | --- | --- | --- |
-| Fodhelper-related interpreter launch — T1548.002 | Process creation and parent executable | **C1** | Alert for wscript with Fodhelper parent |
-| VBScript and PowerShell execution — T1059.005/.001 | Script-host parentage and PowerShell command-line patterns | **S1, S2** | Script-host and PowerShell alerts |
-| WMI subscription installation — T1546.003 | WMI filter, consumer, and binding creation: IDs 19/20/21 | **C2** | Binding screenshot and sequence alert |
-| WMI-launched execution and discovery — T1546.003, T1082/T1016 | WMI-parented PowerShell and discovery-process events | **S3, C3** | WMI-parented PowerShell alert, ARP event, and sequence alert |
-| Local staging and ZIP creation — T1005, T1074.001, T1560.001 | PowerShell file creation: ID 11 | **C4**, file stages | Manifest and ZIP creation screenshots; C4 alert |
-| Outbound web-service activity — T1567 | Process-attributed network connections: ID 3 | **S4**; PowerShell network stages in **C4/C5** | Separate S4 alerts for curl and PowerShell |
-| Archive deletion — T1070.004 | File deletion: ID 23, after an outbound event | **C5** | ZIP deletion screenshot and sequence alert |
-
-C4/C5 select PowerShell network events, while the archive-transmission code uses curl. Their alerts therefore require source-event attribution before they can be described as detection of the archive transfer itself. ATT&CK labels describe the analyzed behaviors, not independently validated technique coverage.
-
-## Read the analysis
-
-1. **[Attack-to-detection mapping](docs/attack-detection-mapping.md)** — what was implemented on each side, the connecting fields, and the recorded alerts.
-2. **[Case study and evidence](docs/case-study.md)** — partial UTC timeline, telemetry assessment, and original screenshots.
-3. **[Scenario analysis](docs/scenario-analysis.md)** — the behaviors present in the original code.
-4. **[Detection catalog](docs/detection-catalog.md)** — the exact scope and current title of each exported query.
-5. **[Telemetry contract](docs/telemetry-contract.md)** — field dependencies, event semantics, scheduling and suppression.
+Detailed join keys and evidence tiers: `docs/correlation-architecture.md`.
+Per-rule detection basis (MITRE detection strategy + Sigma rule ids + vendor
+references): `detections/README.md` and each rule's `setup` in the export.
 
 ## Repository structure
 
 | Location | Purpose |
-| --- | --- |
-| `scripts/` | Original scenario code and a static source map |
-| `phishing/` | Original delivery-page artifact |
+|---|---|
+| `docs/` | architecture, attack-chain-plan, correlation-architecture, telemetry contract, historical analysis |
+| `evidence/runs/` | run ledgers (`RUN-schema.json` + one dir per run) |
+| `evidence/sanitized-screenshots/` | historical screenshots (not run evidence) |
+| `detections/` | rule catalogue + `queries/*.eql` + `exports/*.ndjson` (deterministic export) |
+| `payloads/` | run-scoped scenario artifacts (`setup.bat`, `install.ps1`, `consumer.ps1`) |
+| `reports/` | one report per re-run of the chain (§5 skeleton) |
+| `scripts/` | evidence helpers, verifier, ES fetch helper, sink server, rule generator, runbook, offline tests |
+| `tools/` | offline repository validator |
 | `config/` | Sysmon telemetry configuration |
-| `rules/` | Public detection export without notification credentials/actions |
-| `docs/` | Case study, scenario analysis, attack-to-detection mapping, and detection catalog |
-| `docs/evidence/` | Selected original screenshots and their provenance/hashes |
-| `tools/` | Offline repository validator |
-| `.github/workflows/` | Validation workflow |
+| `phishing/` | original delivery-page artifact (historical, out of scope for evidence) |
+| `.github/workflows/` | CI: offline tests + repository validation |
 
-Sysmon events flow through Windows Event Log and Elastic Agent into Elasticsearch; Kibana evaluates the rules. Fleet manages the agent policy. Notification connectors belong in the private destination environment.
+## How to operate
 
-## Offline checks
+1. Prepare the lab per `scripts/runbooks/README.md` (VM snapshot, Sysmon installed and
+   ingest-verified, sink started, run-scoped config built).
+2. Run the chain (operator runbook) and capture per-stage evidence with
+   `scripts/verify/fetch_evidence_ids.py` into the run ledger.
+3. Verify: `python scripts/verify/verify_run_evidence.py <RUN-<date>-<seq>>` →
+   ACCEPTED. Regress all runs with `--all`.
+4. Write the report under `reports/` (context → timeline → per-stage evidence table →
+   volume split → limitations → references).
 
-With Python 3.9+:
+Offline checks (no Elasticsearch needed):
 
 ```sh
+python scripts/tests/test_offline.py
 python tools/validate_repository.py
 ```
 
-The validator checks configuration syntax, rule inventory, metadata consistency, export hygiene, evidence hashes, and local documentation links. It does not execute the scenario, validate Windows behavior, or compile EQL. See the [change record](CHANGELOG.md) for the refresh scope.
+These cover rule-id uniqueness and determinism, ledger-schema negative cases,
+verifier negative cases, transfer-receipt integrity, export hygiene and local doc
+links. They do not execute the scenario or validate Windows behavior.
 
 ## Evidence scope
 
-The published material documents the implemented scenario and observed alerts. Full source-event attribution and a labeled benign baseline are not included, so no detection-accuracy or complete end-to-end validation claim is made.
-
-The original connector export exposed a credential. It has been removed from the current package; owner-side revocation and historical exposure review remain necessary.
+No verified run is recorded in this tree yet; nothing here is presented as a detected
+incident. Historical screenshots are provenance for the earlier analysis only. The
+original connector credential exposure is a released-lab record: rotation and
+historical review remain the owner's task (see CHANGELOG.md).

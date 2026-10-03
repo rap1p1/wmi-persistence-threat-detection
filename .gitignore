@@ -15,3 +15,6 @@ Thumbs.db
 # Sensitive placeholders
 payload.env
 *.ps1.history
+# Python bytecode
+__pycache__/
+*.pyc

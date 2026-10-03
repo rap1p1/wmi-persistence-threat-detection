@@ -1,4 +1,4 @@
-# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
+﻿# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
 #
 # Loads every query from detections/queries/*.eql plus the per-rule metadata below
 # and writes detections/exports/wmi-rules.ndjson.
@@ -102,7 +102,7 @@ $rules = @(
         interval='1m'; from='now-2m'
         event_ids=@('13')
         supp=@{ group=@('host.name'); dur=60 }
-        required_extra=@('winlog.event_data.TargetObject')
+        required_extra=@('registry.path','registry.value')
         notes='Detection basis: Sigma registry_set_bypass_uac_using_delegateexecute (46dd5308-4572-4d12-aa43-8938f0184d4f), MITRE T1548.002 DET0388/AN1094 (registry half). See docs/correlation-architecture.md R1.'
         fp=@('Approved administration, installation, monitoring, backup or automation may overlap the selected conditions. Assess in the destination environment; no measured false-positive rate is implied.')
     }
@@ -155,7 +155,7 @@ $rules = @(
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name','user.name'); dur=60 }
-        required_extra=@('process.command_line','winlog.event_data.CommandLine','process.parent.executable','process.parent.name','user.name')
+        required_extra=@('process.command_line','process.parent.executable','process.parent.name','user.name')
         notes='Detection basis: Sigma PowerShell flag corpus (name-referenced); MITRE T1059.001. A command-line/context signal, not proof of script contents.'
         fp=@('Approved administration, installation, monitoring, backup or automation may overlap the selected conditions. Assess in the destination environment; no measured false-positive rate is implied.')
     }

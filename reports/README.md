@@ -9,7 +9,7 @@ Naming: `reference-run-<run_id>.md` (no date stamps in file names).
 
 | File | Run | Status |
 |---|---|---|
-| (no verified run yet) | — | — |
+| [reference-run-20261003-01.md](reference-run-20261003-01.md) | RUN-20261003-01 | ACCEPTED (incl. ES re-verification, 21 events) |
 
 Reports are written after the acceptance verifier passes; a report never claims more
 than the ledger + verifier establish. Labels: design docs are intent; reports are

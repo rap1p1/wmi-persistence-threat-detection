@@ -2,7 +2,9 @@
  * Detection basis: Sigma registry_set_bypass_uac_using_delegateexecute
  * (46dd5308-4572-4d12-aa43-8938f0184d4f); MITRE T1548.002 DET0388/AN1094 (registry
  * half). Closes the coverage gap "registry stage of the fodhelper bypass".
- * Telemetry: Sysmon EID 13 (RegistryEvent ValueSet).
+ * Telemetry: Sysmon EID 13 (RegistryEvent ValueSet). Fields verified on the lab
+ * stack: ECS registry.path / registry.value / registry.data.strings
+ * (winlog.event_data.TargetObject is not mapped here).
  * Boundary: single registry event; the key is written and deleted within seconds by
  * setup.bat - a match is context, not proof of elevation; the registry->fodhelper
  * link is TEMPORAL/CONTEXTUAL (docs/correlation-architecture.md, R1).
@@ -10,7 +12,4 @@
 registry where
   winlog.event_id == "13"
   and winlog.channel == "Microsoft-Windows-Sysmon/Operational"
-  and winlog.event_data.TargetObject like (
-    "*\\Software\\Classes\\ms-settings\\Shell\\Open\\command\\DelegateExecute",
-    "*\\Software\\Classes\\ms-settings\\Shell\\Open\\command"
-  )
+  and registry.path like "*\\ms-settings\\Shell\\Open\\command*"

@@ -1,0 +1,299 @@
+{
+  "run_id": "RUN-20261003-01",
+  "scenario_id": "WMI-LAB-1",
+  "created_utc": "2026-10-03T09:54:40Z",
+  "secrets_policy": "no-secrets-allowed",
+  "stages": [
+    {
+      "stage": "S1",
+      "host": "wmi",
+      "account": "WMI\\Duc",
+      "status": "PASS",
+      "input_artifacts": [],
+      "output_artifacts": [],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4Fkbwr",
+          "ts": "2026-10-03T09:54:45.815Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4FkbxD",
+          "ts": "2026-10-03T09:54:45.868Z",
+          "event": "1",
+          "detail": "Process Create:"
+        }
+      ],
+      "notes": "operator action: setup.bat launched via vmrun (declared operator action; session 0, High integrity)"
+    },
+    {
+      "stage": "S2",
+      "host": "wmi",
+      "account": "WMI\\Duc",
+      "status": "PASS",
+      "input_artifacts": [],
+      "output_artifacts": [],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4FkbxH",
+          "ts": "2026-10-03T09:54:45.887Z",
+          "event": "13",
+          "detail": "Registry value set:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4FkbxL",
+          "ts": "2026-10-03T09:54:45.887Z",
+          "event": "13",
+          "detail": "Registry value set:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4FkbxN",
+          "ts": "2026-10-03T09:54:45.900Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4Fkby8",
+          "ts": "2026-10-03T09:54:46.119Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4FkrwV",
+          "ts": "2026-10-03T09:54:46.190Z",
+          "event": "1",
+          "detail": "Process Create:"
+        }
+      ],
+      "notes": "registry->fodhelper link TEMPORAL/CONTEXTUAL (no shared field); fodhelper->wscript->ps ancestry via parent.entity_id; registry event for DelegateExecute carries empty Details"
+    },
+    {
+      "stage": "S3",
+      "host": "wmi",
+      "account": "WMI\\Duc",
+      "status": "PASS",
+      "input_artifacts": [
+        "ART-01-02"
+      ],
+      "output_artifacts": [],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4Ok4eC",
+          "ts": "2026-10-03T09:54:47.466Z",
+          "event": "11",
+          "detail": "File created:",
+          "file_hash": "6B90E6F8125A48E63DF9CCA193621A3105E523423ABEA02542D764A379E8C80A"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4OlomC",
+          "ts": "2026-10-03T09:54:48.120Z",
+          "event": "19",
+          "detail": "WmiEventFilter activity detected:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4OlomI",
+          "ts": "2026-10-03T09:54:48.137Z",
+          "event": "20",
+          "detail": "WmiEventConsumer activity detected:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo4Oloma",
+          "ts": "2026-10-03T09:54:48.168Z",
+          "event": "21",
+          "detail": "WmiEventConsumerToFilter activity detected:"
+        }
+      ],
+      "notes": "binding references cross-check: 21.Consumer/Filter parsed against 19/20 Name; EID 11 Hash vs ART-01-02 raw = module integrity"
+    },
+    {
+      "stage": "S4",
+      "host": "wmi",
+      "account": "NT AUTHORITY\\SYSTEM",
+      "status": "PASS",
+      "input_artifacts": [],
+      "output_artifacts": [],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo6t5RwS",
+          "ts": "2026-10-03T09:55:28.319Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo69_N8k",
+          "ts": "2026-10-03T09:55:33.249Z",
+          "event": "1",
+          "detail": "Process Create:"
+        }
+      ],
+      "notes": "activation: notepad fires the filter (WITHIN 5); consumer runs under WmiPrvSE as SYSTEM (direct entity link WmiPrvSE->powershell)"
+    },
+    {
+      "stage": "S5",
+      "host": "wmi",
+      "account": "NT AUTHORITY\\SYSTEM",
+      "status": "PASS",
+      "input_artifacts": [],
+      "output_artifacts": [
+        "ART-06-01"
+      ],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_OEQdW",
+          "ts": "2026-10-03T09:55:34.704Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_OEQdp",
+          "ts": "2026-10-03T09:55:34.728Z",
+          "event": "11",
+          "detail": "File created:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_OEQeO",
+          "ts": "2026-10-03T09:55:34.791Z",
+          "event": "11",
+          "detail": "File created:"
+        }
+      ],
+      "notes": "discovery via in-process queries (Get-CimInstance etc.) not independently evidenced; arp E1 recorded (ARP.EXE, C3 second box)"
+    },
+    {
+      "stage": "S6",
+      "host": "wmi",
+      "account": "NT AUTHORITY\\SYSTEM",
+      "status": "PASS",
+      "input_artifacts": [
+        "ART-06-01"
+      ],
+      "output_artifacts": [
+        "ART-07-01"
+      ],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_OFAid",
+          "ts": "2026-10-03T09:55:35.194Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_OFAju",
+          "ts": "2026-10-03T09:55:35.244Z",
+          "event": "1",
+          "detail": "Process Create:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_MDTG7",
+          "ts": "2026-10-03T09:55:36.797Z",
+          "event": "3",
+          "detail": "Network connection detected:"
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_MDzFL",
+          "ts": "2026-10-03T09:55:36.802Z",
+          "event": "3",
+          "detail": "Network connection detected:"
+        },
+        {
+          "kind": "receipt",
+          "artifact": "ART-07-01-*.json",
+          "detail": "sink receipt (server-side); transfer integrity by raw sha256 + manifest canonical hash"
+        }
+      ],
+      "notes": "curl PUT = archive + manifest; PS Invoke-RestMethod = status channel (C4/C5 network-stage semantics; sink is internal RFC1918 port 9180 -> web-port rules S4/C4/C5 out of scope by design)"
+    },
+    {
+      "stage": "S7",
+      "host": "wmi",
+      "account": "NT AUTHORITY\\SYSTEM",
+      "status": "PASS",
+      "input_artifacts": [],
+      "output_artifacts": [
+        "ART-08-01"
+      ],
+      "evidence_refs": [
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_bHnHx",
+          "ts": "2026-10-03T09:55:39.180Z",
+          "event": "23",
+          "detail": "File Delete archived:"
+        }
+      ],
+      "notes": "cleanup: rd/del of staging + archive; Clear-Content (history) produces no Sysmon event - declared out of the event evidence"
+    }
+  ],
+  "artifact_index": [
+    {
+      "artifact_id": "ART-01-01",
+      "path": "payload/setup.bat",
+      "sha256": "07929F4432E4F2E9A9FB574FA74549E67E977BA7CD0BF535485442E134F90E10",
+      "producer_stage": "S1",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-01-02",
+      "path": "payload/consumer.ps1",
+      "sha256": "6B90E6F8125A48E63DF9CCA193621A3105E523423ABEA02542D764A379E8C80A",
+      "producer_stage": "S3",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-01-03",
+      "path": "payload/install.ps1",
+      "sha256": "31460FFF9D087EA9AF431A8B486675B35998582851EB081615891A97CC4596EA",
+      "producer_stage": "S1",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-06-01",
+      "path": "_manifest.txt",
+      "sha256": "51D3B6AE3DF863DA13392FB31CE32CA6EA5B180B405470FEEF38EADCC1C60F60",
+      "producer_stage": "S5",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-07-01",
+      "path": "ART-07-01-RUN-20261003-01.json",
+      "sha256": "22ACA144A732C7D7B0B9FCEC444C355C6D27D9F3F93905415F2C0A571665B3A4",
+      "producer_stage": "S6",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-07-02",
+      "path": "wdmp.zip",
+      "sha256": "6A63030817480892E3A81FE8BC24BAD75C864D29E3A8728806CA767705C0078A",
+      "producer_stage": "S6",
+      "consumer_stage": "S7"
+    },
+    {
+      "artifact_id": "ART-08-01",
+      "path": "ART-08-01-RUN-20261003-01.json",
+      "sha256": "3E5820B5F18C1E5FE3E01D6C9015CA04233F3743AD2CBC5553A04C7CB877F378",
+      "producer_stage": "S7",
+      "consumer_stage": "S7"
+    }
+  ]
+}

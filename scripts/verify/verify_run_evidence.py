@@ -224,13 +224,21 @@ def es_verify(ledger, failures, tolerance_s=5.0):
             if ref.get("kind") != "event" or not ref.get("es_id"):
                 continue
             es_id, recorded = ref["es_id"], ref.get("ts") or ""
+            # single-doc GET does not support the wildcard index pattern; use the
+            # ids query (backend indices of the data stream) instead.
+            body = {"size": 1, "query": {"ids": {"values": [es_id]}},
+                    "_source": ["@timestamp"]}
             req = urllib.request.Request(
-                f"{es}/{SYS_INDEX}/_doc/{urllib.parse.quote(es_id, safe='')}",
-                headers={"Authorization": auth})
+                f"{es}/{SYS_INDEX}/_search",
+                data=json.dumps(body).encode(),
+                headers={"Authorization": auth, "Content-Type": "application/json"})
             try:
                 with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
-                    src = json.load(resp).get("_source") or {}
-                actual = src.get("@timestamp")
+                    hits = json.load(resp).get("hits", {}).get("hits", [])
+                if not hits:
+                    failures.append(f"ES: event {es_id} (stage {stage.get('stage')}) not found")
+                    continue
+                actual = (hits[0].get("_source") or {}).get("@timestamp")
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
                     failures.append(f"ES: event {es_id} (stage {stage.get('stage')}) not found")

@@ -1,5 +1,26 @@
 # Change record
 
+## 2026-10-03 — first verified run (RUN-20261003-01)
+
+- Executed the S1–S7 chain on the lab VM `wmi` (Win10 19045, Sysmon 15.21, internal
+  sink at 192.168.106.1:9180, Elastic 9.5.3); ledger `evidence/runs/RUN-20261003-01/`:
+  real es_id + @timestamp per stage, artifacts indexed, verifier **ACCEPTED** (incl.
+  ES re-verification of 21 events and the S3 module-integrity join).
+- Transfer integrity proven: sink receipt sha256 == guest-computed ZIP_SHA256
+  (6A6303…, 14188 B); manifest canonical hash matches the receipt.
+- Detection re-evaluation: 8/11 rules match the run (R1=2, C1/S1/S2/C2/C3/R2/S3=1);
+  C4/S4/C5 = 0 by design (web-port/private-IP scope excludes the internal sink; the
+  transfer is proven by the receipt). Report: `reports/reference-run-20261003-01.md`.
+- Rule fixes surfaced by the run: R1 rewritten to ECS `registry.path` (the raw
+  `winlog.event_data.TargetObject` is not mapped on this stack); S2 dropped the
+  unmapped `winlog.event_data.CommandLine` fallback; both regenerated with stable
+  deterministic ids and re-evaluated (R1=2, S2=1). Lib/validator/offline tests pass.
+- Sysmon config: confirmed empirically on Sysmon 15.21 that an **absent** Network/
+  Registry/WMI section does NOT log those event types, while an explicit empty
+  `onmatch="exclude"` section does — the config was updated to the explicit form.
+- Verifier ES re-verification switched to the `ids` search (single-doc GET does not
+  support the data-stream wildcard).
+
 ## 2026-10-03 — run-day refinements after the Phase 0–2 restructure
 
 - `config/sysmon-config.xml`: removed the three empty `onmatch="exclude"` blocks

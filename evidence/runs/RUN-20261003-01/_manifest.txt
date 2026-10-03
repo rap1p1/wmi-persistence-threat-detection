@@ -1,0 +1,13 @@
+﻿Files: 11
+  Bing.url [208 bytes]
+  consumer.ps1 [6557 bytes]
+  Desktop.lnk [488 bytes]
+  Downloads.lnk [925 bytes]
+  Eula.txt [7490 bytes]
+  info.txt [868 bytes]
+  install.ps1 [3839 bytes]
+  psversion.txt [39 bytes]
+  ps_history_Duc.txt [1083 bytes]
+  readme.txt [7903 bytes]
+  setup.bat [1101 bytes]
+ZIP_SHA256: 6A63030817480892E3A81FE8BC24BAD75C864D29E3A8728806CA767705C0078A

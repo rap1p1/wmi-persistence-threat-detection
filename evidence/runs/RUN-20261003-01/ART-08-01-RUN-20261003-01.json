@@ -1,0 +1,26 @@
+{
+  "run_id": "RUN-20261003-01",
+  "checks": [
+    {
+      "check": "wdmp.zip removed in guest",
+      "result": "PASS"
+    },
+    {
+      "check": "wdmp staging dir removed in guest",
+      "result": "PASS"
+    },
+    {
+      "check": "svhw.ps1 consumer present",
+      "result": "PASS"
+    },
+    {
+      "check": "WMI subscription NotepadFilter/SystemDumpConsumer present",
+      "result": "PASS"
+    },
+    {
+      "check": "sink receipt + archive received (ART-07-01, wdmp.zip 14188 B)",
+      "result": "PASS"
+    }
+  ],
+  "notes": "captured via guest probe 2026-10-03T09:56Z; subscription left installed by design (recovery = revert snapshot before-run-20261003-01)"
+}

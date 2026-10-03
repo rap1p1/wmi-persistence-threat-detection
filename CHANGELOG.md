@@ -1,5 +1,17 @@
 # Change record
 
+## 2026-10-03 — Kibana import and live-alert smoke
+
+- Imported the 11 rules into Kibana: all found, enabled, `building_block_type=default`,
+  deterministic `rule_id` values match the repository export (verified via
+  `api/detection_engine/rules/_find` over the SSH tunnel).
+- Live smoke (separate window; NOT part of RUN-20261003-01): a registry
+  `ms-settings` write+delete in the guest produced 2 EID 13 events; **R1 stored 2
+  alerts at 2026-10-03T10:37:16Z** (schedule + lookback worked); the other 10 rules
+  stored 0 alerts (negatives still clean). The RUN-20261003-01 window predates the
+  import, so the report's per-rule numbers remain query-level (report §4) — this
+  smoke proves the import → schedule → query → alert pipeline end-to-end (§3.1).
+
 ## 2026-10-03 — review-driven rule and verifier revision (post RUN-20261003-01)
 
 - **Ledger/artifact fix for fresh checkouts**: the received archive was referenced in

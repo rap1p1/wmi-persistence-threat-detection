@@ -83,6 +83,12 @@ delete (C5), ancestry/binding/path joins at the verifier.
 
 Negative control window (2026-10-03 10:00–10:05Z, idle): **0 matches for all 11 rules**.
 
+Live-alert smoke (separate from this run, after import): a registry `ms-settings`
+write+delete in the guest (2026-10-03 10:36:39Z) produced 2 EID 13 events; **R1
+stored 2 alerts at 10:37:16Z** via the scheduled evaluation; the other 10 rules
+stored 0. This run's window predates the Kibana import, so the table above remains
+query-level re-evaluation; the smoke confirms the import → schedule → alert pipeline.
+
 ## 4b. EQL join limitation (recorded, not asserted away)
 
 Tested on the lab stack (ES 9.5.3): `sequence by` accepts one field list shared by

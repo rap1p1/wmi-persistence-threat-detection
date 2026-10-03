@@ -1,0 +1,121 @@
+# Repository Review — 3 October 2026
+
+Reviewed source: `e1bbaefc3b3c360afe3936a2277a65c1d6226d78` on `main`.
+
+Scope: all 63 tracked files (56 text files and seven historical PNGs), including scenario source and run-scoped copies, all 11 EQL queries and the NDJSON export, evidence records, verifier/helpers/tests, configuration, workflow, and documentation. The landing page's text, links, and JavaScript were inspected as historical material. No Windows scenario, sink, or live Elasticsearch query was executed during this review.
+
+The review changes documentation only. It does not change scenario code, detection predicates, configuration, or recorded evidence.
+
+## Assessment
+
+The repository now contains a connected S1–S7 scenario, separate registration and activation detections, a documented October run, and substantially better evidence organization than the historical screenshot-only version. Its strongest portfolio themes are UAC-related registry/process telemetry and WMI subscription registration and execution.
+
+The remaining work is concentrated in reproducibility, verifier assertions, and documentation consistency. A reported local run acceptance cannot currently be reproduced from the public checkout.
+
+## Checks performed
+
+| Check | Result | Scope |
+| --- | --- | --- |
+| Retrieved files against Git blob hashes | 63/63 match | Confirms this review used the committed bytes |
+| Offline component suite | 25/25 pass | Does not execute EQL or the Windows scenario |
+| Query source vs exported query text | 11/11 match | Also checked unique IDs and six single-event/five sequence queries |
+| Run-scoped payloads vs configured templates | Match | Run ID, host, and sink substitutions account for the differences |
+| Repository packaging validator | PASS | Nested ledgers are skipped; see P0-2 |
+| Run verifier, `RUN-20261003-01 --offline` | FAIL | Indexed `wdmp.zip` is missing from the committed tree |
+| Live ES verification / scheduled alerts | Not performed in this review | The run report records retrospective EQL results, not stored alerts |
+
+## P0-1 — Published run is missing an indexed artifact
+
+**Evidence:** [ledger](../evidence/runs/RUN-20261003-01/RUN-20261003-01.json), artifact `ART-07-02`, points to `wdmp.zip`. That file is absent from the tracked tree. The [ignore file](../.gitignore) includes `*.zip`, which can explain how a locally retained archive was omitted, but the commit history alone does not establish the operator's exact cause.
+
+The actual offline result is:
+
+```text
+FAIL artifact: artifact file missing: wdmp.zip
+RESULT: FAILED
+```
+
+**Required correction:** choose and document a public-evidence policy. Either publish an appropriate reviewed artifact that satisfies the existing index, or explicitly distinguish a private complete run from a public evidence subset. Preserve the original evidence record and explain any redaction or replacement. Do not remove a mandatory artifact merely to obtain PASS.
+
+The manifest lists a PowerShell history file among the collected contents; publication of the original archive therefore needs a contents review. This review did not recover or publish that archive.
+
+## P0-2 — Packaging validator does not discover the recorded run
+
+**Evidence:** [validate_repository.py](../tools/validate_repository.py) uses `runs_dir.glob("RUN-*.json")`, while the ledger is stored at `evidence/runs/RUN-20261003-01/RUN-20261003-01.json`. The root schema is excluded and no ledger remains in that loop. Receipt checks are inside the skipped loop.
+
+Consequently, the printed PASS for “run ledgers + receipts” does not mean the committed run was checked.
+
+**Required correction:** discover nested ledger files; make the checked ledger count visible; apply receipt checks to each discovered run; test the real CLI against a nested ledger with a missing artifact. Define explicitly whether zero recorded runs is allowed.
+
+## P0-3 — Acceptance checks are weaker than the documented conclusions
+
+**Evidence:** [verify_run_evidence.py](../scripts/verify/verify_run_evidence.py) and [evidence_lib.py](../scripts/evidence_lib.py).
+
+- Event coverage counts ledger rows by event code. It does not establish the recorded process names, event host/account, registry path, WMI object references, or process ancestry.
+- Live ES verification requests only `@timestamp`. It confirms ID lookup and timestamp proximity, not the event fields or joins described in the report.
+- `_check_placeholders()` exists and has a unit test, but is not called by the acceptance path. Missing event IDs and invalid event timestamps are not rejected in offline acceptance.
+- S3 hash verification is optional: omitting the event's `file_hash` skips the assertion.
+- Receipt validation does not require the receipt run ID/host to equal the ledger. It does not compare the ZIP hash in `_manifest.txt` with the receipt hash or enforce received byte size against an available archive.
+- The manifest equality branch depends on `manifest_text`, which the committed receipt does not contain. That branch is skipped for the actual run.
+- S7 checks that a cleanup artifact exists, not whether its checks passed.
+- The final overall output says `ACCEPTED` even after an explicitly ledger-only acceptance, weakening the mode distinction.
+
+**Focused negative probes:** temporary fixtures were derived from the committed run with only the absent ZIP index entry omitted to isolate these checks; the real ledger was not edited. The isolated baseline passed. Removing event IDs and replacing event timestamps with `INVALID` still passed. Removing the S3 hash still passed. A fixture with a different receipt run ID, incorrect ZIP size/hash, and all cleanup checks set to FAIL also passed after refreshing the hashes of those intentionally changed fixture files.
+
+**Required correction:** validate provenance fields and semantic joins in the acceptance path, bind receipts to the selected run, compare manifest/receipt/archive data explicitly, require the intended module-integrity evidence, and evaluate cleanup results. Add negative tests through the public acceptance function/CLI, rather than only testing helper functions.
+
+## P1-1 — Hash provenance is attributed to the wrong evidence source
+
+**Evidence:** [build_ledger_run01.py](../scripts/build_ledger_run01.py) states that the file-write event carried no hash and inserts a hard-coded value from a guest probe into an event reference as `file_hash`. The ledger note and verifier success message then describe it as an EID 11 hash. The report correctly identifies the guest probe, so these sources disagree.
+
+**Required correction:** preserve the distinction between endpoint-event fields and operator-collected file measurements. Store the guest hash with its own source, collection time, host/path, and retained probe artifact; compare it to the staged consumer as artifact evidence. Do not describe that value as a Sysmon event field.
+
+## P1-2 — UAC mechanism observation is not proof of privilege gain
+
+**Evidence:** the reference report and S1 ledger note state that the run was launched through `vmrun` in session 0 with High integrity. Several design/correlation passages nevertheless suggest that a later SYSTEM WMI consumer proves the earlier UAC bypass succeeded.
+
+A SYSTEM consumer is evidence of that process's execution context. It does not establish a Medium-to-High transition in the earlier Fodhelper chain when entry already had High integrity.
+
+**Required correction:** retain UAC bypass as the scenario's technical focus, but describe this run as a mechanism replay. Only claim privilege gain when the initial and resulting token/integrity evidence demonstrates the transition. The rewritten root README makes this distinction.
+
+## P1-3 — Design, historical analysis, and current results are mixed
+
+The root README has been refreshed in this documentation change. The following pages still need targeted synchronization:
+
+| File | Mismatch to resolve |
+| --- | --- |
+| [detections/README.md](../detections/README.md) | Says no verified run is recorded; stage mapping implies C4/S4/C5 cover internal-sink traffic despite their exclusions |
+| [docs/architecture.md](architecture.md) | Describes multipart `POST /upload` and unscoped `POST /status`; implemented sink uses artifact PUT routes and run-scoped status POST |
+| [docs/attack-chain-plan.md](attack-chain-plan.md) | S6 describes the old multipart transfer; multiple stages expect a file-create event hash; UAC elevation wording exceeds this run |
+| [docs/correlation-architecture.md](correlation-architecture.md) | Claims implemented verifier binding/ancestry checks that are absent; R2 summary lists EID 21 although the query begins with Notepad E1 |
+| [docs/telemetry-contract.md](telemetry-contract.md) | Nine-rule scheduling table omits R1/R2; raw-field alternatives and “unchanged” predicate wording predate the mapping fixes |
+| [scripts/runbooks/README.md](../scripts/runbooks/README.md) | Still requests an EID 11 hash and uses the unmapped raw registry field in its example |
+| [evidence/runs/README.md](../evidence/runs/README.md) | Attributes the module hash to EID 11 and broadly claims artifact run-ID verification |
+| [docs/attack-detection-mapping.md](attack-detection-mapping.md) | Historical nine-rule mapping needs an explicit historical label or a separate current-run section |
+| [reports/reference-run-20261003-01.md](../reports/reference-run-20261003-01.md) | “Equivalent” retrospective query evaluation should not imply validation of scheduling, suppression, stored alerts, or latency |
+
+The historical April case study should remain historical rather than being silently rewritten as October evidence.
+
+## P2 — Rule packaging and tooling details
+
+These findings do not change the recorded 8/11 retrospective match result, but matter for reuse:
+
+- **Elastic building-block mode:** all 11 exported rules lack `building_block_type`. “Signal-level building blocks” is currently an analytical description, not a verified Elastic building-block configuration.
+- **Scenario-specific R2:** its Notepad trigger and `svhw.ps1` name are deliberate lab conditions; do not describe it as generic detection of all WMI consumer activation.
+- **Name-derived rule IDs:** renaming a rule changes its ID. Reviewers should distinguish this convention from identity that remains stable across display-name changes.
+- **ATT&CK metadata:** generated subtechnique links use dotted IDs in URL paths (for example `T1546.003/`) rather than the nested technique/subtechnique form. Some technique lists also combine entries under a tactic that does not apply to every entry. Review metadata separately from query syntax.
+- **EQL source/export test:** the test named `test_query_files_match_export` checks the filename inventory, not equality of query contents. The independent comparison in this review found 11/11 equal.
+- **Uncollected test:** `test_s3_module_integrity` is a module-level function outside a `unittest.TestCase`; it is not among the 25 executed tests.
+- **Evidence fetch helper:** its `--filter` is sent to Elasticsearch `query_string` (not KQL); `--event-code` does not constrain the query; direct dotted-key reads can omit fields when `_source` uses nested objects.
+- **TLS in evidence tools:** the ES helpers disable certificate validation. Document the lab trust assumption and use a configured trust chain before presenting them as reusable verification tooling.
+- **License:** the tracked tree has no root license and exported rules have an empty license field. The owner should choose reuse terms if public reuse is intended.
+
+## Recommended order
+
+1. Resolve the public evidence package and missing artifact policy.
+2. Correct ledger discovery and acceptance assertions, with failing negative fixtures.
+3. Separate guest-probe hashes from event-derived fields.
+4. Synchronize the current docs with the implementation and reference run.
+5. Validate scheduled alert behavior separately from retrospective EQL matches; retain source-event IDs for any new alert claims.
+
+The completed run remains useful evidence of the local chain. These corrections make the published acceptance and detection claims easier to independently verify.

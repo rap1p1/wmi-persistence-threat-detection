@@ -21,7 +21,13 @@ The rule export documents fields consumed by query predicates, implicit event ca
 
 The current EQL retains its original operators: `==`, `in` and `like` are case-sensitive, while `:` is case-insensitive. Their mixed use is an explicit portability limitation until checked against actual normalized field values. A successful Windows path lookup does not establish EQL string equivalence.
 
-Raw and ECS command-line fields occur as alternatives in some rules. A missing field or a missing parent value can affect predicates and exclusions; absence is not evidence of a benign process. C2 includes a name-based exclusion, not a verified publisher/provenance check. C4/C5 do not enforce process ancestry or file identity across their stages.
+Raw and ECS command-line fields occur as alternatives in some rules; a missing field
+or a missing parent value can affect predicates and exclusions, and absence is not
+evidence of a benign process. Current state (2026-10-03): C2's name-based exclusions
+were REMOVED (an object name does not prove provenance) and the binding references are
+verified by the acceptance verifier; **C4 joins its two EID 11 events by
+`process.entity_id`**; **C5 joins zip create→delete by `file.path`** (per-clause `by`);
+S4 is an E1-only upload-intent signal with no network join.
 
 ## File deletion semantics
 

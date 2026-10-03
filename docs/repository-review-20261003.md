@@ -1,4 +1,16 @@
-# Repository Review — 3 October 2026
+# Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+Repository Review — 3 October 2026
 
 Reviewed source: `e1bbaefc3b3c360afe3936a2277a65c1d6226d78` on `main`.
 
@@ -6,13 +18,37 @@ Scope: all 63 tracked files (56 text files and seven historical PNGs), including
 
 The review changes documentation only. It does not change scenario code, detection predicates, configuration, or recorded evidence.
 
-## Assessment
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+Assessment
 
 The repository now contains a connected S1–S7 scenario, separate registration and activation detections, a documented October run, and substantially better evidence organization than the historical screenshot-only version. Its strongest portfolio themes are UAC-related registry/process telemetry and WMI subscription registration and execution.
 
 The remaining work is concentrated in reproducibility, verifier assertions, and documentation consistency. A reported local run acceptance cannot currently be reproduced from the public checkout.
 
-## Checks performed
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+Checks performed
 
 | Check | Result | Scope |
 | --- | --- | --- |
@@ -24,7 +60,19 @@ The remaining work is concentrated in reproducibility, verifier assertions, and 
 | Run verifier, `RUN-20261003-01 --offline` | FAIL | Indexed `wdmp.zip` is missing from the committed tree |
 | Live ES verification / scheduled alerts | Not performed in this review | The run report records retrospective EQL results, not stored alerts |
 
-## P0-1 — Published run is missing an indexed artifact
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P0-1 — Published run is missing an indexed artifact
 
 **Evidence:** [ledger](../evidence/runs/RUN-20261003-01/RUN-20261003-01.json), artifact `ART-07-02`, points to `wdmp.zip`. That file is absent from the tracked tree. The [ignore file](../.gitignore) includes `*.zip`, which can explain how a locally retained archive was omitted, but the commit history alone does not establish the operator's exact cause.
 
@@ -39,7 +87,19 @@ RESULT: FAILED
 
 The manifest lists a PowerShell history file among the collected contents; publication of the original archive therefore needs a contents review. This review did not recover or publish that archive.
 
-## P0-2 — Packaging validator does not discover the recorded run
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P0-2 — Packaging validator does not discover the recorded run
 
 **Evidence:** [validate_repository.py](../tools/validate_repository.py) uses `runs_dir.glob("RUN-*.json")`, while the ledger is stored at `evidence/runs/RUN-20261003-01/RUN-20261003-01.json`. The root schema is excluded and no ledger remains in that loop. Receipt checks are inside the skipped loop.
 
@@ -47,7 +107,19 @@ Consequently, the printed PASS for “run ledgers + receipts” does not mean th
 
 **Required correction:** discover nested ledger files; make the checked ledger count visible; apply receipt checks to each discovered run; test the real CLI against a nested ledger with a missing artifact. Define explicitly whether zero recorded runs is allowed.
 
-## P0-3 — Acceptance checks are weaker than the documented conclusions
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P0-3 — Acceptance checks are weaker than the documented conclusions
 
 **Evidence:** [verify_run_evidence.py](../scripts/verify/verify_run_evidence.py) and [evidence_lib.py](../scripts/evidence_lib.py).
 
@@ -64,13 +136,37 @@ Consequently, the printed PASS for “run ledgers + receipts” does not mean th
 
 **Required correction:** validate provenance fields and semantic joins in the acceptance path, bind receipts to the selected run, compare manifest/receipt/archive data explicitly, require the intended module-integrity evidence, and evaluate cleanup results. Add negative tests through the public acceptance function/CLI, rather than only testing helper functions.
 
-## P1-1 — Hash provenance is attributed to the wrong evidence source
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P1-1 — Hash provenance is attributed to the wrong evidence source
 
 **Evidence:** [build_ledger_run01.py](../scripts/build_ledger_run01.py) states that the file-write event carried no hash and inserts a hard-coded value from a guest probe into an event reference as `file_hash`. The ledger note and verifier success message then describe it as an EID 11 hash. The report correctly identifies the guest probe, so these sources disagree.
 
 **Required correction:** preserve the distinction between endpoint-event fields and operator-collected file measurements. Store the guest hash with its own source, collection time, host/path, and retained probe artifact; compare it to the staged consumer as artifact evidence. Do not describe that value as a Sysmon event field.
 
-## P1-2 — UAC mechanism observation is not proof of privilege gain
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P1-2 — UAC mechanism observation is not proof of privilege gain
 
 **Evidence:** the reference report and S1 ledger note state that the run was launched through `vmrun` in session 0 with High integrity. Several design/correlation passages nevertheless suggest that a later SYSTEM WMI consumer proves the earlier UAC bypass succeeded.
 
@@ -78,7 +174,19 @@ A SYSTEM consumer is evidence of that process's execution context. It does not e
 
 **Required correction:** retain UAC bypass as the scenario's technical focus, but describe this run as a mechanism replay. Only claim privilege gain when the initial and resulting token/integrity evidence demonstrates the transition. The rewritten root README makes this distinction.
 
-## P1-3 — Design, historical analysis, and current results are mixed
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P1-3 — Design, historical analysis, and current results are mixed
 
 The root README has been refreshed in this documentation change. The following pages still need targeted synchronization:
 
@@ -96,7 +204,19 @@ The root README has been refreshed in this documentation change. The following p
 
 The historical April case study should remain historical rather than being silently rewritten as October evidence.
 
-## P2 — Rule packaging and tooling details
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+P2 — Rule packaging and tooling details
 
 These findings do not change the recorded 8/11 retrospective match result, but matter for reuse:
 
@@ -110,7 +230,19 @@ These findings do not change the recorded 8/11 retrospective match result, but m
 - **TLS in evidence tools:** the ES helpers disable certificate validation. Document the lab trust assumption and use a configured trust chain before presenting them as reusable verification tooling.
 - **License:** the tracked tree has no root license and exported rules have an empty license field. The owner should choose reuse terms if public reuse is intended.
 
-## Recommended order
+## Repository review — 2026-10-03 (SUPERSEDED SNAPSHOT)
+
+> **Superseded.** This review describes the repository *before* the remediation round
+> of 2026-10-03 that followed it (commit series ending `b874f26` + remediation). The
+> findings it lists — 25 tests, nested ledgers skipped by the validator, the missing
+> gitignored `wdmp.zip`, ledger-only `ACCEPTED`, one shared-window builder bug — were
+> all addressed: the validator now scans nested ledgers and receipts, the archive is no
+> longer indexed (the receipt is the committed transfer evidence), the verifier grades
+> strictly with ES-backed acceptance, the builder uses an explicit finite run window,
+> and the suite is larger with acceptance negatives. Keep this file for history only; do
+> not cite it as current state.
+
+Recommended order
 
 1. Resolve the public evidence package and missing artifact policy.
 2. Correct ledger discovery and acceptance assertions, with failing negative fixtures.

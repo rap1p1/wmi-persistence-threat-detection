@@ -6,7 +6,7 @@ A Windows security lab that designs a connected local intrusion chain and engine
 
 The repository brings together the scenario, Sysmon telemetry configuration, **11 EQL detections**, and run-scoped evidence. It follows the chain from registry changes and process ancestry to WMI object registration, consumer execution, file activity, and receiver-side transfer records.
 
-[Reference run](reports/reference-run-20261003-01.md) · [Detection catalogue](detections/README.md) · [Run ledger](evidence/runs/RUN-20261003-01/RUN-20261003-01.json) · [Repository review](docs/repository-review-20261003.md)
+[Reference run (latest)](reports/reference-run-20261003-03.md) · [Historical runs](reports/README.md) · [Detection catalogue](detections/README.md) · [Run ledger (latest)](evidence/runs/RUN-20261003-03/RUN-20261003-03.json) · [Historical review snapshot](docs/repository-review-20261003.md)
 
 ## Engineering focus
 
@@ -37,29 +37,36 @@ This diagram describes the scenario. The reference run records how it was actual
 | S1 | Script entry | Sysmon 1: entry process | Recorded context |
 | S2 | UAC bypass mechanism | Sysmon 13: registry writes; Sysmon 1: Fodhelper → script host → PowerShell | R1, C1, S1, S2 |
 | S3 | WMI subscription registration | Sysmon 11: consumer file; Sysmon 19/20/21: filter, consumer, binding | C2 |
-| S4 | Trigger-associated consumer execution | Sysmon 1: Notepad and SYSTEM PowerShell under WmiPrvSE | R2, S3 |
-| S5 | Discovery and staging | Sysmon 1: discovery process; Sysmon 11: staging files | C3; C4 file stages |
-| S6 | Archive and internal transfer | File/process/network activity, manifest and sink receipt | C4/S4 have external-egress predicates; receipt records the internal transfer |
-| S7 | Staging and archive cleanup | Sysmon 23 and post-run state checks | C5 requires a preceding qualifying network event |
+| S4 | Trigger-associated consumer execution | Sysmon 1: Notepad and SYSTEM PowerShell under WmiPrvSE (user + parent verified) | R2, S3 |
+| S5 | Discovery and staging | Sysmon 1: discovery process (ancestry-joined to the interpreter); Sysmon 11: staging files | C3; C4 |
+| S6 | Archive and internal transfer | Sysmon 11 zip create; curl E1 (upload intent) + E3 to the sink; sink receipt | C4 (staging→archive, same entity), S4 (upload intent, lab analogue); the receipt proves the transfer |
+| S7 | Staging and archive cleanup | Sysmon 23 (same path as the create); post-run state checks | C5 (create→delete, per-clause `by file.path`) |
 
 Rule IDs such as **S1** identify detections; stage IDs such as **S1** identify scenario steps. They are separate namespaces.
 
 ## Recorded results
 
-The latest documented execution is **RUN-20261003-01**, on **3 October 2026, 09:54:43–09:56:30 UTC**. Its environment is Windows 10 Pro, Sysmon 15.21, and Elastic 9.5.3.
+Three runs are recorded. The **latest is RUN-20261003-03** (3 October 2026,
+**11:36:20–11:40:00 UTC**, declared window); RUN-20261003-01 and -02 are historical.
+Environment: Windows 10 Pro 19045, Sysmon 15.21, Elastic Agent 9.5.3, Elasticsearch
+9.5.3, internal sink on port 9180.
 
-| Record | Published result |
+| Record | Published result (RUN-20261003-03) |
 | --- | --- |
-| Run ledger | Seven stage rows with 21 Elasticsearch event references and UTC timestamps |
-| UAC-related activity | Registry writes and the Fodhelper → wscript → PowerShell chain are recorded |
-| WMI activity | Filter, consumer and binding creation, followed by WmiPrvSE-parented SYSTEM PowerShell |
-| Query evaluation | The run report records matches for **8 of 11 rules** through retrospective EQL evaluation |
-| Internal transfer | The manifest and receipt record the same archive SHA-256; the receipt records a 14,188-byte ZIP |
-| Cleanup | Archive deletion is recorded; the cleanup artifact reports staging removal and the subscription remaining installed |
+| Verifier | `verify_run_evidence.py RUN-20261003-03` → **ACCEPTED (ES-BACKED)**: 22 event refs across 22 unique documents re-fetched; timestamp/code/host/join fields matched |
+| UAC-related activity | Registry writes and the Fodhelper → wscript → PowerShell chain; ancestry verified by `parent.entity_id` |
+| WMI activity | EID 19/20/21 Created; binding references parsed and equal; consumer runs as **SYSTEM** with parent **WmiPrvSE.exe** |
+| Internal transfer | Curl E1→E3 ownership by `process.entity_id` to the sink; sink receipt records `wdmp.zip` 14,661 bytes + sha256 (archive bytes are gitignored — the receipt is the committed evidence) |
+| Detection (stored alerts) | **25 stored alerts** across the 11 rules, exported with ids/timestamps to `evidence/runs/RUN-20261003-03/alert-manifest.json` |
+| Detection (behaviour) | Direct EQL re-evaluation of the same window: one cluster per rule (R1 and S2 two) — stored alerts are an upper bound due to schedule/lookback re-matching |
+| Cleanup | Archive deletion of the same `file.path`; cleanup artifact parsed and run-bound, all checks PASS (subscription left installed by design) |
+| Negative control | 2026-10-03 10:00–10:05Z (idle, 5 min): 0 matches for all 11 rules — a short negative check, **not** a false-positive rate |
 
-The run started in a **High-integrity operator session**. It exercises the UAC bypass mechanism without demonstrating a Medium-to-High token transition. The reported query matches are **not stored detection alerts**; C4, S4 and C5 exclude the private-address sink on port 9180.
-
-The report records a local `ACCEPTED` result. In the published checkout reviewed on 3 October, the indexed `wdmp.zip` is absent, so artifact verification returns `FAILED`. See the [review findings](docs/repository-review-20261003.md) for the reproducibility check and the distinction between recorded findings and automated assertions.
+All three runs pass the strict verifier (ES-backed). Every run started in a
+**High-integrity operator session**: the UAC bypass *mechanism* is replayed without
+demonstrating a Medium→High token transition, and no reboot-survival test exists. The
+historical [review snapshot](docs/repository-review-20261003.md) describes the earlier
+state of the repository; its findings are marked superseded there.
 
 ## Telemetry and detection workflow
 
@@ -70,13 +77,13 @@ Investigation uses same-host process identities where available, WMI object refe
 - [Query sources](detections/queries/) — readable EQL predicates.
 - [Import bundle](detections/exports/wmi-rules.ndjson) — 11 rules with metadata, ATT&CK mappings, schedules, and suppression.
 - [Correlation design](docs/correlation-architecture.md) — intended join keys and evidence tiers.
-- [Reference report](reports/reference-run-20261003-01.md) — per-stage observations and retrospective query counts.
+- [Reference report (latest)](reports/reference-run-20261003-03.md) — per-stage observations, stored-alert manifest and limitations; earlier runs are listed in [reports/README.md](reports/README.md).
 
 ## Read the project
 
 | Start here | Purpose |
 | --- | --- |
-| [Reference run](reports/reference-run-20261003-01.md) | Execution context, timeline, results, and recovery state |
+| [Reference run (latest)](reports/reference-run-20261003-03.md) | Execution context, timeline, per-stage verification, stored-alert manifest, limitations |
 | [Chain design](docs/attack-chain-plan.md) | S1–S7 responsibilities and evidence requirements |
 | [Detection catalogue](detections/README.md) | Rule intent and detection basis |
 | [Evidence records](evidence/runs/) | Ledger, staged artifacts, manifest, receipt, and cleanup record |
@@ -106,9 +113,14 @@ From the repository root:
 ```sh
 python scripts/tests/test_offline.py
 python tools/validate_repository.py
-python scripts/verify/verify_run_evidence.py RUN-20261003-01 --offline
+python scripts/verify/verify_run_evidence.py --all            # ES-backed acceptance
+python scripts/verify/verify_run_evidence.py RUN-20261003-03 --offline
 ```
 
-The reviewed snapshot passes **25 component tests** and the packaging validator. The run verifier fails on the missing indexed archive described above. The packaging validator currently skips nested run ledgers, so its PASS is not evidence of run acceptance.
+Current state: **45 component tests pass**; the packaging validator passes and now
+scans nested run ledgers, receipts and query/export consistency (drift fails); the run
+verifier passes for **all three runs with ES-backed acceptance** (`ACCEPTED
+(ES-BACKED)`). Without ES credentials the verifier reports `ACCEPTED-LEDGER-ONLY`,
+which is explicitly *not* ES-backed acceptance.
 
-These commands do not execute the Windows scenario. Live event lookup requires the configured Elasticsearch environment; scheduled detection behavior and alert attribution require separate verification in Elastic.
+These commands do not execute the Windows scenario. Live event lookup requires the configured Elasticsearch environment; scheduled detection behavior and alert attribution require separate verification in Elastic. Offline tests do not prove EQL compilation, Kibana import/scheduling, detection accuracy or false-positive rates.

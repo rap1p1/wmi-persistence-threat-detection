@@ -30,18 +30,19 @@ All rules follow the same conventions:
 | **C2** | WMI Subscription Registration Sequence | 73 | host+computer (30 s) | Sequence 19→20→21 Created; S3 | Sigma `0f06a3a5`; DET0086/AN0236 |
 | **R2** | WMI Subscription Registration Followed by WMI-Hosted Interpreter | 73 | host (600 s) | Sequence: any 19/20/21 Created → WMI-hosted interpreter (10 m); S3/S4 | MITRE DET0086/AN0236 (reg→activation pair) |
 | **S3** | SYSTEM Shell or Tool With WMI Host Parent | 73 | host+entity (60 s) | EID 1 SYSTEM, parent WmiPrvSE/scrcons; S4 | DET0086/AN0236; Sigma `sysmon_wmi_susp_scripting` |
-| **C3** | WMI-Hosted Interpreter Followed by Discovery Process | 73 | host (60 s) | Sequence: WMI-hosted SYSTEM interpreter → SYSTEM discovery (30 s); ancestry verifier-checked | DET0086/AN0236 + T1082/T1016 |
+| **C3** | WMI-Hosted Interpreter Followed by Discovery Process | 73 | host (60 s) | Sequence with per-clause `by`: interpreter `process.entity_id` → discovery `process.parent.entity_id` (30 s) | DET0086/AN0236 + T1082/T1016 |
 | **C4** | Staging and Archive Creation by a Single Process | 73 | host+entity (120 s) | Sequence EID 11: non-archive create → zip create, same `process.entity_id`; S5/S6 | T1005/T1074.001/T1560.001 |
-| **S4** | Script-Spawned Curl with Upload Arguments | 73 | host+entity (60 s) | EID 1: curl spawned by a script/interpreter with upload-intent args; S6 | T1041 upload-intent egress |
-| **C5** | Archive Creation Followed by Archive Deletion | 73 | host (60 s) | Sequence EID 11 zip → EID 23 zip (2 m); same-path verifier-checked; S7 | T1070.004 |
+| **S4** | Script-Spawned Curl with Upload Arguments | 73 | host+entity (60 s) | EID 1: curl spawned by a script/interpreter with upload-intent args; S6 | **lab analogue** of upload intent (T1041 deliberately NOT asserted) |
+| **C5** | Archive Creation Followed by Archive Deletion | 73 | host (60 s) | Sequence with per-clause `by file.path`: EID 11 zip → EID 23 zip of the SAME path (2 m) | T1070.004 |
 
-EQL scope notes: host/time correlations are exactly what the query expresses; joins
-that EQL cannot bind (interpreter→discovery ancestry, curl E1↔E3 ownership, archive
-create/delete path equality) are executed by
-`scripts/verify/verify_run_evidence.py` over the ledger's stored fields — see
+EQL scope notes (corrected 2026-10-03): Elasticsearch 9.5.3 **supports a per-clause
+`by` key**, so C3 joins the interpreter's `process.entity_id` to the discovery's
+`process.parent.entity_id` (real ancestry) and C5 joins the zip create to the zip
+delete by `file.path`. Curl E1↔E3 ownership stays a verifier/ledger join (entity key),
+and the acceptance verifier re-checks ancestry and path equality from the ledger — see
 `docs/correlation-architecture.md`.
 
-## Run coverage (RUN-20261003-01, EQL re-evaluation)
+## Run coverage — latest run RUN-20261003-03 (stored alerts)
 
 | Rule | Matches | Rule | Matches |
 |---|---|---|---|

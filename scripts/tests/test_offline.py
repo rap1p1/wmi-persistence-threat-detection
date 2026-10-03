@@ -128,11 +128,13 @@ class LedgerSchemaTests(unittest.TestCase):
             "run_id": "RUN-20261013-01",
             "scenario_id": "WMI-LAB-1",
             "created_utc": "2026-10-13T01:00:00Z",
+            "run_window_utc": {"start": "2026-10-13T01:00:00Z", "end": "2026-10-13T01:10:00Z"},
+            "run_started_utc": "2026-10-13T01:00:05Z",
             "secrets_policy": "no-secrets-allowed",
             "stages": [
                 {"stage": f"S{i}", "host": "VICTIM", "account": "VICTIM\\victim",
                  "status": "PASS", "input_artifacts": [], "output_artifacts": [],
-                 "evidence_refs": [{"kind": "event", "event": "1",
+                 "evidence_refs": [{"kind": "event", "event": "1", "es_id": f"id{i}",
                                     "ts": "2026-10-13T01:00:05Z", "detail": "x"}]}
                 for i in range(1, 8)
             ],
@@ -291,7 +293,7 @@ class TimestampToleranceTests(unittest.TestCase):
             {"kind": "event", "es_id": "x", "ts": "2026-10-13T01:00:05Z"}]}]}
         failures = []
         with mock.patch.dict(os.environ, {"ES_URL": "", "ES_PASS": ""}):
-            self.assertEqual(vr.es_verify(ledger, failures), 0)
+            self.assertEqual(vr.es_verify(ledger, failures), (0, 0))
         self.assertEqual(failures, [])
 
 
@@ -347,49 +349,53 @@ class JoinCheckTests(unittest.TestCase):
         W = "W"
         return {"run_id": "RUN-20261013-01", "scenario_id": "WMI-LAB-1",
                 "created_utc": "2026-10-13T01:00:00Z", "secrets_policy": "no-secrets-allowed",
+                "run_window_utc": {"start": "2026-10-13T01:00:00Z", "end": "2026-10-13T01:10:00Z"},
                 "artifact_index": [],
                 "stages": [
                     {"stage": "S2", "host": "wmi", "account": "u", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "1", "ts": "t1", "detail": "fodhelper",
+                        {"kind": "event", "es_id": "j1", "event": "1", "ts": "2026-10-13T01:00:06Z", "detail": "fodhelper",
                          "process_name": "fodhelper.exe", "entity_id": "F", "parent_entity_id": "C"},
-                        {"kind": "event", "event": "1", "ts": "t2", "detail": "wscript",
+                        {"kind": "event", "es_id": "j2", "event": "1", "ts": "2026-10-13T01:00:07Z", "detail": "wscript",
                          "process_name": "wscript.exe", "entity_id": "W", "parent_entity_id": "F"},
-                        {"kind": "event", "event": "1", "ts": "t3", "detail": "ps",
+                        {"kind": "event", "es_id": "j3", "event": "1", "ts": "2026-10-13T01:00:08Z", "detail": "ps",
                          "process_name": "powershell.exe", "entity_id": PS, "parent_entity_id": "W"}]},
                     {"stage": "S3", "host": "wmi", "account": "u", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "19", "ts": "t4", "detail": "f",
+                        {"kind": "event", "es_id": "j4", "event": "19", "ts": "2026-10-13T01:00:09Z", "detail": "f",
                          "wmi_name": "NF", "wmi_operation": "Created"},
-                        {"kind": "event", "event": "20", "ts": "t5", "detail": "c",
+                        {"kind": "event", "es_id": "j5", "event": "20", "ts": "2026-10-13T01:00:10Z", "detail": "c",
                          "wmi_name": "SDC", "wmi_operation": "Created"},
-                        {"kind": "event", "event": "21", "ts": "t6", "detail": "b",
+                        {"kind": "event", "es_id": "j6", "event": "21", "ts": "2026-10-13T01:00:11Z", "detail": "b",
                          "wmi_consumer": "CommandLineEventConsumer.Name=\"SDC\"",
                          "wmi_filter": "__EventFilter.Name=\"NF\"", "wmi_operation": "Created"}]},
                     {"stage": "S4", "host": "wmi", "account": "SYSTEM", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "1", "ts": "t7", "detail": "consumer",
+                        {"kind": "event", "es_id": "j7", "event": "1", "ts": "2026-10-13T01:00:12Z", "detail": "consumer",
                          "process_name": "powershell.exe", "entity_id": PS,
-                         "parent_entity_id": "WMIPRVSE"}]},
+                         "parent_entity_id": "WMIPRVSE", "parent_name": "WmiPrvSE.exe",
+                         "user": "NT AUTHORITY\\SYSTEM"}]},
                     {"stage": "S5", "host": "wmi", "account": "SYSTEM", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "1", "ts": "t8", "detail": "arp",
-                         "process_name": "arp.exe", "entity_id": "ARP", "parent_entity_id": PS}]},
+                        {"kind": "event", "es_id": "j8", "event": "1", "ts": "2026-10-13T01:00:13Z", "detail": "arp",
+                         "process_name": "ARP.EXE", "entity_id": "ARP", "parent_entity_id": PS}]},
                     {"stage": "S6", "host": "wmi", "account": "SYSTEM", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "11", "ts": "t9", "detail": "zip",
+                        {"kind": "event", "es_id": "j9", "event": "11", "ts": "2026-10-13T01:00:14Z", "detail": "zip",
                          "file_name": "wdmp.zip", "file_path": r"C:\Windows\Temp\wdmp.zip",
                          "entity_id": PS},
-                        {"kind": "event", "event": "1", "ts": "t10", "detail": "curl",
+                        {"kind": "event", "es_id": "j10", "event": "1", "ts": "2026-10-13T01:00:15Z", "detail": "curl",
                          "process_name": "curl.exe", "entity_id": "CUR", "parent_entity_id": PS},
-                        {"kind": "event", "event": "3", "ts": "t11", "detail": "c3",
-                         "process_name": "curl.exe", "entity_id": "CUR", "dst_ip": "10.0.0.5"},
-                        {"kind": "event", "event": "3", "ts": "t11b", "detail": "ps-status",
-                         "process_name": "powershell.exe", "entity_id": PS, "dst_ip": "10.0.0.5"},
+                        {"kind": "event", "es_id": "j11", "event": "3", "ts": "2026-10-13T01:00:16Z", "detail": "c3",
+                         "process_name": "curl.exe", "entity_id": "CUR",
+                         "dst_ip": "192.168.106.1", "dst_port": 9180},
+                        {"kind": "event", "es_id": "j12", "event": "3", "ts": "2026-10-13T01:00:17Z", "detail": "ps-status",
+                         "process_name": "powershell.exe", "entity_id": PS,
+                         "dst_ip": "192.168.106.1", "dst_port": 9180},
                         {"kind": "receipt", "artifact": "ART-07-01-*.json", "detail": "r"}]},
                     {"stage": "S7", "host": "wmi", "account": "SYSTEM", "status": "PASS",
                      "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
-                        {"kind": "event", "event": "23", "ts": "t12", "detail": "del",
+                        {"kind": "event", "es_id": "j13", "event": "23", "ts": "2026-10-13T01:00:18Z", "detail": "del",
                          "file_name": "wdmp.zip", "file_path": r"C:\Windows\Temp\wdmp.zip",
                          "entity_id": "CMD"}]},
                 ]}
@@ -397,8 +403,8 @@ class JoinCheckTests(unittest.TestCase):
     def test_join_checks_pass(self):
         import verify.verify_run_evidence as vr
 
-        failures = []
-        vr.join_checks(self._ledger(), failures)
+        failures, gaps = [], []
+        vr.join_checks(self._ledger(), failures, gaps)
         self.assertEqual(failures, [])
 
     def test_join_mismatch_fails(self):
@@ -409,20 +415,9 @@ class JoinCheckTests(unittest.TestCase):
         for r in s2["evidence_refs"]:
             if r["process_name"] == "wscript.exe":
                 r["parent_entity_id"] = "WRONG"
-        failures = []
-        vr.join_checks(ledger, failures)
+        failures, gaps = [], []
+        vr.join_checks(ledger, failures, gaps)
         self.assertTrue(any("S2 fodhelper->wscript" in f for f in failures), failures)
-
-    def test_archive_path_mismatch_fails(self):
-        import verify.verify_run_evidence as vr
-
-        ledger = self._ledger()
-        s6 = [s for s in ledger["stages"] if s["stage"] == "S6"][0]
-        s7 = [s for s in ledger["stages"] if s["stage"] == "S7"][0]
-        s7["evidence_refs"][0]["file_path"] = r"C:\Windows\Temp\other.zip"
-        failures = []
-        vr.join_checks(ledger, failures)
-        self.assertTrue(any("C5 archive-path equality" in f for f in failures), failures)
 
     def test_binding_mismatch_fails(self):
         import verify.verify_run_evidence as vr
@@ -431,9 +426,9 @@ class JoinCheckTests(unittest.TestCase):
         s3 = [s for s in ledger["stages"] if s["stage"] == "S3"][0]
         e21 = next(r for r in s3["evidence_refs"] if r["event"] == "21")
         e21["wmi_consumer"] = 'CommandLineEventConsumer.Name="OTHER"'
-        failures = []
-        vr.join_checks(ledger, failures)
-        self.assertTrue(any("binding refs mismatch" in f for f in failures), failures)
+        failures, gaps = [], []
+        vr.join_checks(ledger, failures, gaps)
+        self.assertTrue(any("do not match the recorded objects" in f for f in failures), failures)
 
     def test_e3_join_by_entity_without_name(self):
         """A name-less E3 (Sysmon 'unknown process') with a matching entity must pass
@@ -450,19 +445,240 @@ class JoinCheckTests(unittest.TestCase):
         self.assertEqual(failures, [])
         self.assertEqual(gaps, [])
 
-    def test_e3_missing_entity_is_gap_not_failure(self):
+
+
+
+class NegativeAcceptanceTests(unittest.TestCase):
+    """Acceptance-path negatives: each mutation must FAIL the verifier."""
+
+    def _valid_run(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        d = Path(tmp.name)
+        (d / "payload").mkdir()
+        (d / "payload" / "consumer.ps1").write_bytes(b"$x = 1\r\n")
+        raw = el.raw_sha256((d / "payload" / "consumer.ps1").read_bytes())
+        W0, W1 = "2026-10-13T01:00:00Z", "2026-10-13T01:10:00Z"
+        E = "PS"
+        stages = [
+            {"stage": "S1", "host": "wmi", "account": "u", "status": "PASS",
+             "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                 {"kind": "event", "es_id": "s1", "ts": "2026-10-13T01:00:05Z", "event": "1",
+                  "process_name": "cmd.exe", "entity_id": "C"}]},
+            {"stage": "S2", "host": "wmi", "account": "u", "status": "PASS",
+             "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                 {"kind": "event", "es_id": "s2a", "ts": "2026-10-13T01:00:06Z", "event": "13",
+                  "process_name": "reg.exe", "registry_path": "HKU\\x\\ms-settings\\Shell\\Open\\command\\(Default)"},
+                 {"kind": "event", "es_id": "s2b", "ts": "2026-10-13T01:00:07Z", "event": "1",
+                  "process_name": "fodhelper.exe", "entity_id": "F", "parent_entity_id": "C"},
+                 {"kind": "event", "es_id": "s2c", "ts": "2026-10-13T01:00:08Z", "event": "1",
+                  "process_name": "wscript.exe", "entity_id": "W", "parent_entity_id": "F"},
+                 {"kind": "event", "es_id": "s2d", "ts": "2026-10-13T01:00:09Z", "event": "1",
+                  "process_name": "powershell.exe", "entity_id": E, "parent_entity_id": "W"}]},
+            {"stage": "S3", "host": "wmi", "account": "u", "status": "PASS",
+             "input_artifacts": ["ART-01-02"], "output_artifacts": [], "evidence_refs": [
+                 {"kind": "event", "es_id": "s3a", "ts": "2026-10-13T01:00:10Z", "event": "11",
+                  "process_name": "powershell.exe", "file_path": "C:\\Windows\\Temp\\svhw.ps1",
+                  "file_hash": raw, "file_hash_provenance": "unit test"},
+                 {"kind": "event", "es_id": "s3b", "ts": "2026-10-13T01:00:11Z", "event": "19",
+                  "wmi_name": "NF", "wmi_operation": "Created"},
+                 {"kind": "event", "es_id": "s3c", "ts": "2026-10-13T01:00:12Z", "event": "20",
+                  "wmi_name": "SDC", "wmi_operation": "Created"},
+                 {"kind": "event", "es_id": "s3d", "ts": "2026-10-13T01:00:13Z", "event": "21",
+                  "wmi_consumer": 'CommandLineEventConsumer.Name="SDC"',
+                  "wmi_filter": '__EventFilter.Name="NF"'}]},
+            {"stage": "S4", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+             "input_artifacts": [], "output_artifacts": [], "evidence_refs": [
+                 {"kind": "event", "es_id": "s4a", "ts": "2026-10-13T01:01:00Z", "event": "1",
+                  "process_name": "notepad.exe", "user": "wmi\\Duc"},
+                 {"kind": "event", "es_id": "s4b", "ts": "2026-10-13T01:01:01Z", "event": "1",
+                  "process_name": "powershell.exe", "user": "NT AUTHORITY\\SYSTEM",
+                  "entity_id": E, "parent_entity_id": "WMIPRVSE",
+                  "parent_name": "WmiPrvSE.exe"}]},
+            {"stage": "S5", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+             "input_artifacts": [], "output_artifacts": ["ART-06-01"], "evidence_refs": [
+                 {"kind": "event", "es_id": "s5a", "ts": "2026-10-13T01:01:05Z", "event": "1",
+                  "process_name": "ARP.EXE", "entity_id": "A", "parent_entity_id": E},
+                 {"kind": "event", "es_id": "s5b", "ts": "2026-10-13T01:01:06Z", "event": "11",
+                  "process_name": "powershell.exe", "file_path": "C:\\Windows\\Temp\\wdmp\\info.txt"},
+                 {"kind": "event", "es_id": "s5c", "ts": "2026-10-13T01:01:07Z", "event": "11",
+                  "process_name": "powershell.exe", "file_path": "C:\\Windows\\Temp\\wdmp\\_manifest.txt"}]},
+            {"stage": "S6", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+             "input_artifacts": ["ART-06-01"], "output_artifacts": ["ART-07-01"],
+             "evidence_refs": [
+                 {"kind": "event", "es_id": "s6a", "ts": "2026-10-13T01:01:20Z", "event": "11",
+                  "process_name": "powershell.exe", "entity_id": E,
+                  "file_path": "C:\\Windows\\Temp\\wdmp.zip"},
+                 {"kind": "event", "es_id": "s6b", "ts": "2026-10-13T01:01:21Z", "event": "1",
+                  "process_name": "curl.exe", "entity_id": "CUR", "parent_entity_id": E},
+                 {"kind": "event", "es_id": "s6c", "ts": "2026-10-13T01:01:22Z", "event": "3",
+                  "entity_id": "CUR", "dst_ip": "192.168.106.1", "dst_port": 9180},
+                 {"kind": "event", "es_id": "s6d", "ts": "2026-10-13T01:01:23Z", "event": "3",
+                  "process_name": "powershell.exe", "entity_id": E,
+                  "dst_ip": "192.168.106.1", "dst_port": 9180},
+                 {"kind": "receipt", "artifact": "ART-07-01-*.json", "detail": "receipt"}]},
+            {"stage": "S7", "host": "wmi", "account": "SYSTEM", "status": "PASS",
+             "input_artifacts": [], "output_artifacts": ["ART-08-01"], "evidence_refs": [
+                 {"kind": "event", "es_id": "s7a", "ts": "2026-10-13T01:01:30Z", "event": "23",
+                  "file_path": "C:\\Windows\\Temp\\wdmp.zip"}]},
+        ]
+        man = d / "_manifest.txt"
+        man.write_bytes(b"Files: 1\r\n")
+        man_hash = el.canon_sha256(man.read_bytes())
+        receipt = {"artifact_id": "ART-07-01", "run_id": "RUN-20261013-01",
+                   "kind": "transfer-receipt",
+                   "payload": {"run_id": "RUN-20261013-01", "host": "wmi",
+                               "manifest_sha256": man_hash,
+                               "sink_files": [{"name": "wdmp.zip", "size": 10,
+                                               "sha256": "B" * 64}]}}
+        (d / "ART-07-01-RUN-20261013-01.json").write_text(json.dumps(receipt), encoding="utf-8")
+        clean = {"run_id": "RUN-20261013-01",
+                 "checks": [{"check": "wdmp.zip removed", "result": "PASS"}]}
+        (d / "ART-08-01-RUN-20261013-01.json").write_text(json.dumps(clean), encoding="utf-8")
+        ledger = {"run_id": "RUN-20261013-01", "scenario_id": "WMI-LAB-1",
+                  "created_utc": "2026-10-13T01:10:00Z",
+                  "run_window_utc": {"start": W0, "end": W1},
+                  "run_started_utc": "2026-10-13T01:00:05Z",
+                  "secrets_policy": "no-secrets-allowed", "stages": stages,
+                  "artifact_index": [
+                      {"artifact_id": "ART-01-02", "path": "payload/consumer.ps1",
+                       "sha256": el.canon_sha256(b"$x = 1\n"), "producer_stage": "S3",
+                       "consumer_stage": "S7"},
+                      {"artifact_id": "ART-06-01", "path": "_manifest.txt",
+                       "sha256": man_hash, "producer_stage": "S5", "consumer_stage": "S6"},
+                      {"artifact_id": "ART-07-01", "path": "ART-07-01-RUN-20261013-01.json",
+                       "sha256": el.canon_sha256((d / "ART-07-01-RUN-20261013-01.json").read_bytes()),
+                       "producer_stage": "S6", "consumer_stage": ""},
+                      {"artifact_id": "ART-08-01", "path": "ART-08-01-RUN-20261013-01.json",
+                       "sha256": el.canon_sha256((d / "ART-08-01-RUN-20261013-01.json").read_bytes()),
+                       "producer_stage": "S7", "consumer_stage": ""}]}
+        return tmp, d, ledger
+
+    def _fail(self, mutate):
         import verify.verify_run_evidence as vr
 
-        ledger = self._ledger()
-        s6 = [s for s in ledger["stages"] if s["stage"] == "S6"][0]
-        for r in s6["evidence_refs"]:
-            if r.get("event") == "3" and r.get("process_name") == "curl.exe":
-                r["entity_id"] = None
-                r["process_name"] = None
-        failures, gaps = [], []
-        vr.join_checks(ledger, failures, gaps)
-        self.assertEqual(failures, [])
-        self.assertTrue(any("E1<->E3 ownership unverified" in g for g in gaps), gaps)
+        tmp, d, ledger = self._valid_run()
+        try:
+            mutate(ledger, d)
+            failures, gaps = [], []
+            vr.validate_run(ledger, d, failures, gaps)
+            return failures
+        finally:
+            tmp.cleanup()
+
+    def test_baseline_ledger_passes(self):
+        self.assertEqual(self._fail(lambda l, d: None), [])
+
+    def test_duplicate_event_id_fails(self):
+        def m(l, d):
+            l["stages"][5]["evidence_refs"].append(dict(l["stages"][5]["evidence_refs"][0]))
+        self.assertTrue(any("duplicate event refs" in f for f in self._fail(m)))
+
+    def test_placeholder_timestamp_fails(self):
+        def m(l, d):
+            l["stages"][0]["evidence_refs"][0]["ts"] = "2026-10-13T01:00:5xZ"
+        self.assertTrue(any("outside the run window" in f or "not ISO-8601" in f
+                            for f in self._fail(m)))
+
+    def test_missing_module_hash_fails(self):
+        def m(l, d):
+            l["stages"][2]["evidence_refs"][0].pop("file_hash")
+        self.assertTrue(any("module hash missing" in f for f in self._fail(m)))
+
+    def test_event_outside_window_fails(self):
+        def m(l, d):
+            l["stages"][0]["evidence_refs"][0]["ts"] = "2026-10-13T00:00:00Z"
+        self.assertTrue(any("outside the run window" in f for f in self._fail(m)))
+
+    def test_receipt_wrong_run_fails(self):
+        def m(l, d):
+            p = d / "ART-07-01-RUN-20261013-01.json"
+            r = json.loads(p.read_text())
+            r["payload"]["run_id"] = "RUN-20261013-99"
+            p.write_text(json.dumps(r))
+            l["artifact_index"][2]["sha256"] = el.canon_sha256(p.read_bytes())
+        self.assertTrue(any("receipt run_id" in f for f in self._fail(m)))
+
+    def test_receipt_bad_size_fails(self):
+        def m(l, d):
+            p = d / "ART-07-01-RUN-20261013-01.json"
+            r = json.loads(p.read_text())
+            r["payload"]["sink_files"][0]["size"] = "10"
+            p.write_text(json.dumps(r))
+            l["artifact_index"][2]["sha256"] = el.canon_sha256(p.read_bytes())
+        self.assertTrue(any("size must be a positive integer" in f for f in self._fail(m)))
+
+    def test_receipt_manifest_mismatch_fails(self):
+        def m(l, d):
+            p = d / "ART-07-01-RUN-20261013-01.json"
+            r = json.loads(p.read_text())
+            r["payload"]["manifest_sha256"] = "C" * 64
+            p.write_text(json.dumps(r))
+            l["artifact_index"][2]["sha256"] = el.canon_sha256(p.read_bytes())
+        self.assertTrue(any("manifest_sha256" in f for f in self._fail(m)))
+
+    def test_cleanup_check_fail_fails(self):
+        def m(l, d):
+            p = d / "ART-08-01-RUN-20261013-01.json"
+            c = {"run_id": "RUN-20261013-01",
+                 "checks": [{"check": "wdmp.zip removed", "result": "FAIL"}]}
+            p.write_text(json.dumps(c))
+            l["artifact_index"][3]["sha256"] = el.canon_sha256(p.read_bytes())
+        self.assertTrue(any("cleanup check not PASS" in f for f in self._fail(m)))
+
+    def test_entity_mismatch_fails(self):
+        def m(l, d):
+            s6 = l["stages"][5]["evidence_refs"]
+            curl1 = next(r for r in s6 if r.get("event") == "1"
+                         and r.get("process_name") == "curl.exe")
+            e3 = next(r for r in s6 if r.get("event") == "3"
+                      and r.get("entity_id") == curl1["entity_id"])
+            e3["entity_id"] = "FOREIGN"   # E3 now contradicts the curl E1 entity
+        fails = self._fail(m)
+        self.assertTrue(any("S6" in f for f in fails), fails)
+
+    def test_archive_path_mismatch_fails(self):
+        def m(l, d):
+            for r in l["stages"][6]["evidence_refs"]:
+                if r.get("event") == "23":
+                    r["file_path"] = "C:\\Windows\\Temp\\other.zip"
+        fails = self._fail(m)
+        self.assertTrue(any("archive-path equality" in f for f in fails), fails)
+
+    def test_path_traversal_fails(self):
+        def m(l, d):
+            l["artifact_index"][0]["path"] = "../../etc/passwd"
+        self.assertTrue(any("traversal" in f for f in self._fail(m)))
+
+    def test_s4_non_system_fails(self):
+        def m(l, d):
+            l["stages"][3]["evidence_refs"][1]["user"] = "wmi\\Duc"
+        self.assertTrue(any("not SYSTEM" in f for f in self._fail(m)))
+
+    def test_c2_partial_substring_no_longer_passes(self):
+        def m(l, d):
+            l["stages"][2]["evidence_refs"][3]["wmi_filter"] = '__EventFilter.Name="NotepadFilterX"'
+        self.assertTrue(any("do not match the recorded objects" in f for f in self._fail(m)))
+
+
+class EqlSourceExportDriftTests(unittest.TestCase):
+    """A one-character drift between the .eql source and the exported query fails."""
+
+    def test_normalize_and_compare(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "validator", REPO / "tools" / "validate_repository.py")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        src = REPO / "detections" / "queries" / "c5-archive-created-then-deleted.eql"
+        text = src.read_text(encoding="utf-8")
+        rules = el.parse_ndjson(REPO / "detections" / "exports" / "wmi-rules.ndjson")
+        c5 = next(r for r in rules if r["name"].startswith("[C5]"))
+        self.assertEqual(validator.normalize_eql(text), validator.normalize_eql(c5["query"]))
+        drifted = text.replace("maxspan=2m", "maxspan=3m")
+        self.assertNotEqual(validator.normalize_eql(drifted),
+                            validator.normalize_eql(c5["query"]))
 
 
 if __name__ == "__main__":

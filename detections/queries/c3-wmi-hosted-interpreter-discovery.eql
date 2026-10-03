@@ -2,14 +2,14 @@
  * Detection basis: MITRE T1546.003 DET0086/AN0236 (activation half) + T1082/T1016
  * discovery after WMI-hosted execution.
  * Telemetry: Sysmon EID 1.
- * JOIN LIMITATION (verified on the lab stack, ES 9.5.3): EQL 'sequence by' accepts
- * one field list shared by ALL steps - it cannot bind step1.process.entity_id to
- * step2.process.parent.entity_id. This query therefore correlates by host/time
- * (TEMPORAL tier); the ancestry assertion
- * (discovery.parent.entity_id == interpreter.entity_id) is executed by the
- * acceptance verifier from the ledger/event fields.
+ * CORRELATION (verified on ES 9.5.3): EQL supports a PER-CLAUSE `by` key, so the
+ * discovery event is joined to the interpreter by ancestry:
+ *   step1 (interpreter) by process.entity_id
+ *   step2 (discovery)   by process.parent.entity_id
+ * The earlier host/time-only join was replaced by this entity link; the acceptance
+ * verifier re-checks the same ancestry from the ledger.
  */
-sequence by host.name with maxspan=30s
+sequence with maxspan=30s
 
   /* WMI-hosted interpreter (SYSTEM context) */
   [process where
@@ -18,9 +18,9 @@ sequence by host.name with maxspan=30s
     and process.parent.name : ("WmiPrvSE.exe", "scrcons.exe")
     and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
     and process.name : ("powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe", "rundll32.exe", "regsvr32.exe", "mshta.exe")
-  ]
+  ] by process.entity_id
 
-  /* Listed SYSTEM discovery process on the same host; ancestry is verifier-checked */
+  /* Listed SYSTEM discovery process whose PARENT is that interpreter */
   [process where
     winlog.event_id : "1"
     and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
@@ -30,4 +30,4 @@ sequence by host.name with maxspan=30s
       "nltest.exe", "nbtstat.exe", "hostname.exe"
     )
     and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
-  ]
+  ] by process.parent.entity_id

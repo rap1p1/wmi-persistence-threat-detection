@@ -213,7 +213,7 @@ $rules = @(
     @{
         file='c3-wmi-hosted-interpreter-discovery.eql'; id='C3'
         name='[C3] WMI-Hosted Interpreter Followed by Discovery Process'
-        desc='Same-host sequence: a WMI-hosted SYSTEM interpreter followed by a listed SYSTEM discovery process within 30 seconds. Host/time correlation only; the ancestry assertion (discovery parent entity == interpreter entity) is executed by the acceptance verifier because EQL cannot bind fields across sequence events.'
+        desc='Ancestry-joined sequence: a WMI-hosted SYSTEM interpreter followed within 30 seconds by a listed SYSTEM discovery process whose PARENT entity is that interpreter (EQL per-clause by). The acceptance verifier re-checks the same ancestry from the ledger.'
         tags=@('Signal','WMI Execution','Discovery','T1546.003','T1082','T1016')
         severity='high'; risk=73
         tactic=@('TA0003','Persistence')
@@ -224,7 +224,7 @@ $rules = @(
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=60 }
         required_extra=@('process.parent.name','user.name')
-        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (activation half) + T1082/T1016. EQL by-field limitations verified on the lab stack (ES 9.5.3). See docs/correlation-architecture.md C3.'
+        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (activation half) + T1082/T1016. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): interpreter by process.entity_id, discovery by process.parent.entity_id - a real ancestry join, not host/time. See docs/correlation-architecture.md C3.'
         fp=@('Unrelated same-host discovery within 30 s of WMI execution can correlate; ancestry is verifier-checked. No measured false-positive rate is implied.')
     }
     @{
@@ -250,8 +250,8 @@ $rules = @(
     @{
         file='s4-script-spawned-curl-upload-args.eql'; id='S4'
         name='[S4] Script-Spawned Curl with Upload Arguments'
-        desc='Single-event signal: a curl process launched by a script/interpreter (powershell/cmd/wscript/cscript) with upload-intent arguments. Proves upload INTENT by the invoking interpreter, not a successful send; E1->E3 ownership and transfer are asserted separately (verifier S6 join and the sink receipt). No archive name, IP, port or hostname is required.'
-        tags=@('Signal','Exfiltration','T1041')
+        desc='LAB ANALOGUE, single-event signal: a curl process launched by a script/interpreter (powershell/cmd/wscript/cscript) with upload-intent arguments. Proves upload INTENT by the invoking interpreter - not a connection, not a C2 channel, not a successful send. E1->E3 ownership is the verifier S6 join; transfer success is the sink receipt. No archive name, IP, port or hostname required.'
+        tags=@('Signal','Exfiltration Analogue','Upload Intent','Lab Analogue')
         severity='high'; risk=73
         tactic=@('TA0010','Exfiltration')
         techniques=@(
@@ -260,13 +260,13 @@ $rules = @(
         event_ids=@('1')
         supp=@{ group=@('host.name','process.entity_id'); dur=60 }
         required_extra=@('process.command_line','process.parent.name')
-        notes='Detection basis: upload-intent egress pattern (T1041/T1573-analog). E1-only (script-spawned curl with upload args); a host/time E1-E3 join is deliberately NOT used - it could misattribute another process connection to this curl. E1<->E3 ownership is the verifier S6 ledger join (GAP when the E3 lacks attribution); transfer success is the sink receipt. See docs/correlation-architecture.md S4.'
+        notes='LAB ANALOGUE: E1-only upload-intent signal (script-spawned curl with upload args). It does NOT prove a connection, a C2 channel or a completed transfer, so the ATT&CK mapping is limited to the exfiltration tactic as an analogue and T1041 is NOT asserted; transfer success is the sink receipt. A host/time E1-E3 join is deliberately NOT used. See docs/correlation-architecture.md S4.'
         fp=@('Scripts performing curl uploads (automation/CI) match the intent signal; the transfer claim requires the receipt. No measured false-positive rate is implied.')
     }
     @{
         file='c5-archive-created-then-deleted.eql'; id='C5'
         name='[C5] Archive Creation Followed by Archive Deletion'
-        desc='Same-host: an archive is created (EID 11, zip) then deleted (EID 23, zip) within 2 minutes. The PowerShell status-channel dependency was removed; same-path equality is asserted by the acceptance verifier; no archive name is hard-coded and deletion does not imply transfer success.'
+        desc='Path-joined sequence: an archive is created (EID 11, zip) then deleted (EID 23, zip) on the SAME file.path within 2 minutes (EQL per-clause by). No archive name is hard-coded; the acceptance verifier re-checks path equality; deletion does not imply transfer success.'
         tags=@('Signal','Defense Evasion','T1070.004')
         severity='high'; risk=73
         tactic=@('TA0005','Defense Evasion')
@@ -277,7 +277,7 @@ $rules = @(
         event_ids=@('11','23')
         supp=@{ group=@('host.name'); dur=60 }
         required_extra=@('file.extension')
-        notes='Detection basis: T1070.004 deletion telemetry chained to archive creation; EQL cannot bind the created path into the deletion event, so path equality is verifier/analyst-checked. See docs/correlation-architecture.md C5.'
+        notes='Detection basis: T1070.004 deletion telemetry chained to archive creation. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): both steps key on file.path, so the deletion is joined to the creation of the SAME archive path. The acceptance verifier re-checks the path equality from the ledger. See docs/correlation-architecture.md C5.'
         fp=@('Zip-create then zip-delete within 2 minutes is uncommon in normal PC use; assess in the destination environment. No measured false-positive rate is implied.')
     }
 )

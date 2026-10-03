@@ -1,12 +1,14 @@
 /*
- * Detection basis: upload-intent egress (T1041/T1573-analog). SINGLE-EVENT signal:
- * a curl process launched by a script/interpreter whose command line carries upload
- * arguments. It proves upload INTENT by the invoking interpreter - never a
- * successful send. No archive name, IP, port or hostname is required.
- * Network ownership: E1<->E3 by process.entity_id is a separate ledger/verifier
- * join (S6, GAP when the E3 lacks attribution); a host/time E1-E3 join is NOT used,
- * because it would risk attributing another process' connection to this curl.
- * Transfer success: the sink receipt + manifest-receipt equality.
+ * Detection basis: LAB ANALOGUE of upload-intent telemetry. SINGLE-EVENT signal: a
+ * curl process launched by a script/interpreter whose command line carries upload
+ * arguments. It proves upload INTENT by the invoking interpreter - NEVER that a
+ * connection succeeded, that data left the host, or that a C2 channel exists.
+ * T1041 (Exfiltration Over C2 Channel) is deliberately NOT mapped: the query cannot
+ * evidence a channel or a completed transfer. This signal is mapped as the lab's
+ * exfiltration-analogue intent; transfer success is proven by the sink receipt.
+ * Network ownership: E1<->E3 by process.entity_id is a separate ledger/verifier join
+ * (S6); a host/time E1-E3 join is NOT used (it would risk attributing another
+ * process' connection to this curl). No archive name, IP, port or hostname required.
  */
 process where
   winlog.event_id : "1"

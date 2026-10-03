@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Offline packaging checks for WMI-LAB-1 (no Elasticsearch, no Windows runtime).
 
 Covers: Sysmon XML syntax; detection export hygiene (11 rules, deterministic
@@ -24,8 +24,15 @@ UUIDV5_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-8[0-9a-f]{3}-[0-9
 
 def query_fields(query):
     plain = re.sub(r"/\*.*?\*/", "", query, flags=re.S)
-    return set(re.findall(r"\b(?:winlog|host|user|process|file|destination|event)\.[A-Za-z0-9_.]+",
+    return set(re.findall(r"\b(?:winlog|host|user|process|file|destination|event|registry)\.[A-Za-z0-9_.]+",
                           plain))
+
+
+def normalize_eql(text):
+    """Strip block comments and collapse whitespace so a query source and its export
+    compare equal regardless of formatting; any predicate/character change fails."""
+    body = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"\s+", " ", body).strip()
 
 
 def validate():
@@ -85,11 +92,39 @@ def validate():
                 errors.append(f"rule {r.get('name')}: unexpected id prefix {base!r}")
 
         shipped = {p.name for p in (ROOT / "detections" / "queries").glob("*.eql")}
-        # each query file must correspond to exactly one export rule (matched by name prefix)
+        # each query file must map to exactly one export rule AND the exported query
+        # must equal the .eql source (normalised) - drift in either direction fails.
+        prefix_map = {
+            "R1": "r1-ms-settings-open-command-registry-hijack",
+            "C1": "c1-fodhelper-child-interpreter",
+            "S1": "s1-script-host-fodhelper-cmd-parent",
+            "S2": "s2-powershell-hidden-bypass-patterns",
+            "C2": "c2-wmi-subscription-registration-sequence",
+            "R2": "r2-wmi-subscription-registration-activation",
+            "S3": "s3-system-shell-wmi-host-parent",
+            "C3": "c3-wmi-hosted-interpreter-discovery",
+            "C4": "c4-single-process-staging-archive",
+            "S4": "s4-script-spawned-curl-upload-args",
+            "C5": "c5-archive-created-then-deleted",
+        }
         for r in rules:
-            prefix = r.get("name", "").split("]")[0].lstrip("[").lower()
-            if not any(p.startswith(prefix + "-") for p in shipped):
-                errors.append(f"rule {r.get('name')}: no matching query file")
+            rid = r.get("name", "").split("]")[0].lstrip("[")
+            fname = prefix_map.get(rid)
+            if fname is None:
+                errors.append(f"rule {r.get('name')}: no query-file mapping for id {rid!r}")
+                continue
+            qpath = ROOT / "detections" / "queries" / (fname + ".eql")
+            if not qpath.is_file():
+                errors.append(f"rule {r.get('name')}: missing query file {fname}.eql")
+                continue
+            if normalize_eql(qpath.read_text(encoding="utf-8")) != normalize_eql(r.get("query", "")):
+                errors.append(f"rule {r.get('name')}: exported query differs from "
+                              f"{fname}.eql (source/export drift)")
+        expected_files = {v + ".eql" for v in prefix_map.values()}
+        if shipped != expected_files:
+            errors.append(f"query directory does not match the rule catalogue "
+                          f"(extra={sorted(shipped - expected_files)}, "
+                          f"missing={sorted(expected_files - shipped)})")
 
     # ---- run ledgers (nested: evidence/runs/RUN-<id>/RUN-<id>.json) ---------------
     runs_dir = ROOT / "evidence" / "runs"

@@ -1,11 +1,25 @@
 ﻿#!/usr/bin/env python3
 """Build a run ledger from live Elasticsearch evidence (generic, by run id).
 
-Discovers the S1..S7 signature events inside a RUN-SCOPED window (anchored on the
-latest setup.bat launch, override with RUN_WINDOW_START/RUN_WINDOW_END), stores rich
-join fields per ref, indexes artifacts. Credentials: environment only.
-Usage: python scripts/build_ledger_run.py RUN-YYYYMMDD-NN
-Guest-side svhw.ps1 hash (module anchor) via GUEST_SVHW_SHA256.
+RUN SCOPING (hard requirements):
+  - The run window is EXPLICIT: pass RUN_WINDOW_START/RUN_WINDOW_END, or RUN_ANCHOR_TS
+    (the run's S1 timestamp, +/- 5 s). There is no implicit "now" window.
+  - The entry event is discovered with a DESCENDING sort; the run must resolve to
+    exactly ONE candidate inside the window, otherwise the builder aborts (a silent
+    guess must not select "the latest activity" while claiming a run id).
+  - Every event ref must fall inside [window_start, window_end]; background telemetry
+    (collector E3) is stored in a separate `baseline_telemetry` section, never counted
+    as campaign evidence.
+  - RESULTS ARE PAGINATED (search_after); truncation is reported, never silent.
+  - E3 refs are restricted to the sink destination AND entity-verified curl
+    connections; collector traffic is excluded from S6.
+  - Stage status is "OBSERVED" (events present) - the builder does not self-certify
+    PASS; acceptance is the verifier's decision.
+
+Credentials: environment only (ES_URL / ES_USER / ES_PASS).
+Usage:
+  set RUN_WINDOW_START=... & set RUN_WINDOW_END=... &
+  python scripts/build_ledger_run.py RUN-YYYYMMDD-NN
 """
 import base64
 import hashlib
@@ -15,6 +29,7 @@ import re
 import ssl
 import sys
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +37,10 @@ ES = os.environ["ES_URL"].rstrip("/")
 USER = os.environ.get("ES_USER", "elastic")
 PASS = os.environ["ES_PASS"]
 SYS = ".ds-logs-windows.sysmon_operational-*"
+HOST = os.environ.get("RUN_HOST", "wmi")
+SINK_IP = os.environ.get("SINK_IP", "192.168.106.1")
+SINK_PORT = int(os.environ.get("SINK_PORT", "9180"))
+GUEST_HASH = os.environ.get("GUEST_SVHW_SHA256", "")
 CTX = ssl.create_default_context()
 CTX.check_hostname = False
 CTX.verify_mode = ssl.CERT_NONE
@@ -29,20 +48,40 @@ AUTH = "Basic " + base64.b64encode(f"{USER}:{PASS}".encode()).decode()
 RUN = sys.argv[1] if len(sys.argv) > 1 else ""
 if not re.match(r"^RUN-[0-9]{8}-[0-9]{2,}$", RUN):
     raise SystemExit("provide a run id RUN-YYYYMMDD-NN")
-GUEST_HASH = os.environ.get("GUEST_SVHW_SHA256", "")
+MAX_RESULTS = int(os.environ.get("MAX_RESULTS", "2000"))
 
 
 def post(url, body):
     r = urllib.request.Request(url, data=json.dumps(body).encode(),
                                headers={"Authorization": AUTH, "Content-Type": "application/json"})
-    with urllib.request.urlopen(r, timeout=30, context=CTX) as resp:
+    with urllib.request.urlopen(r, timeout=60, context=CTX) as resp:
         return json.load(resp)
 
 
-def search(filters, size=12):
+def search_all(filters, cap=MAX_RESULTS):
+    """Paginated search (search_after). Returns (hits, truncated_flag)."""
+    hits, after, truncated = [], None, False
+    while True:
+        body = {"size": 200, "query": {"bool": {"filter": filters}},
+                "sort": [{"@timestamp": "asc"}, {"_doc": "asc"}]}
+        if after:
+            body["search_after"] = after
+        batch = post(f"{ES}/{SYS}/_search", body)["hits"]["hits"]
+        if not batch:
+            break
+        hits.extend(batch)
+        if len(hits) >= cap:
+            truncated = len(batch) > 0 and len(hits) >= cap
+            hits = hits[:cap]
+            break
+        after = batch[-1]["sort"]
+    return hits, truncated
+
+
+def search_desc(filters, size=20):
     return post(f"{ES}/{SYS}/_search",
                 {"size": size, "query": {"bool": {"filter": filters}},
-                 "sort": [{"@timestamp": "asc"}]})["hits"]["hits"]
+                 "sort": [{"@timestamp": "desc"}]})["hits"]["hits"]
 
 
 def gp(d, p):
@@ -67,16 +106,18 @@ def raw(p):
     return hashlib.sha256(p.read_bytes()).hexdigest().upper()
 
 
-def ref(s):
+def ref(h):
+    s = h["_source"]
     wl = s.get("winlog") or {}
     ed = wl.get("event_data") or {}
     reg = s.get("registry") or {}
     head = (s.get("message") or "").splitlines()[0][:110] if s.get("message") else ""
-    return {"kind": "event", "es_id": None, "ts": s.get("@timestamp"),
+    return {"kind": "event", "es_id": h["_id"], "ts": s.get("@timestamp"),
             "event": str(gp(s, "event.code") or ""), "detail": head,
             "process_name": clean(gp(s, "process.name")),
             "entity_id": clean(gp(s, "process.entity_id")),
             "parent_entity_id": clean(gp(s, "process.parent.entity_id")),
+            "parent_name": clean(gp(s, "process.parent.name")),
             "user": clean(gp(s, "user.name")),
             "file_path": clean(gp(s, "file.path")),
             "file_name": clean(gp(s, "file.name")),
@@ -88,105 +129,167 @@ def ref(s):
             "wmi_consumer": clean(ed.get("Consumer")), "wmi_filter": clean(ed.get("Filter"))}
 
 
-def with_ids(refs, hits):
-    for r, h in zip(refs, hits):
-        r["es_id"] = h["_id"]
-    return refs
+def dedupe(refs):
+    """One ref per ES _id (a document matched by two searches counts once)."""
+    seen, out = set(), []
+    for r in refs:
+        if r["es_id"] in seen:
+            continue
+        seen.add(r["es_id"])
+        out.append(r)
+    return out
 
 
-base = [{"term": {"host.name": "wmi"}}]
-s1 = search(base + [{"term": {"event.code": "1"}}, {"wildcard": {"message": "*setup.bat*"}}], 50)
-if not s1:
-    raise SystemExit("no setup.bat entry event found")
-# Anchor on the LATEST entry (a re-run must not blend an earlier window); the search
-# window opens a small buffer BEFORE that anchor so registration events (which trail
-# the entry by ~2-3 s) are included, while earlier attempts stay excluded.
-from datetime import datetime, timedelta, timezone
-s1_new = max(s1, key=lambda h: h["_source"]["@timestamp"])
-anchor = s1_new["_source"]["@timestamp"]
-W0 = os.environ.get("RUN_WINDOW_START") or (
-    (datetime.fromisoformat(anchor.replace("Z", "+00:00")) - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-W1 = os.environ.get("RUN_WINDOW_END") or "now"
-window = {"gte": W0, "lte": W1}
-created_utc = anchor[:19] + "Z"
-base_win = base + [{"range": {"@timestamp": window}}]
+def in_window(ts, lo, hi):
+    return lo <= ts <= hi
 
-reg = search(base_win + [{"term": {"event.code": "13"}}, {"term": {"process.name": "reg.exe"}}], 4)
-fod = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "fodhelper.exe"}}], 2)
-wsc = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "wscript.exe"}}], 2)
-psi = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "powershell.exe"}},
-                         {"wildcard": {"process.command_line": "*install.ps1*"}}], 2)
-svh = search(base_win + [{"term": {"event.code": "11"}}, {"wildcard": {"file.name": "svhw.ps1"}}], 2)
-e19 = search(base_win + [{"term": {"event.code": "19"}},
-                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-e20 = search(base_win + [{"term": {"event.code": "20"}},
-                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-e21 = search(base_win + [{"term": {"event.code": "21"}},
-                         {"term": {"winlog.event_data.Operation": "Created"}}], 2)
-ntp = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "notepad.exe"}}], 2)
-wps = search(base_win + [{"term": {"event.code": "1"}},
-                         {"term": {"process.parent.name": "WmiPrvSE.exe"}}], 2)
-arp = post(f"{ES}/{SYS}/_search",
-           {"size": 2, "query": {"bool": {"must": [{"query_string": {"query": 'message:"arp"'}}],
-                                          "filter": base_win + [{"term": {"event.code": "1"}}]}},
-            "sort": [{"@timestamp": "asc"}]})["hits"]["hits"]
-info = search(base_win + [{"term": {"event.code": "11"}}, {"term": {"file.name": "info.txt"}}], 2)
-manf = search(base_win + [{"term": {"event.code": "11"}},
-                          {"term": {"file.name": "_manifest.txt"}}], 2)
-zcr = search(base_win + [{"term": {"event.code": "11"}}, {"term": {"file.name": "wdmp.zip"}}], 2)
-cur1 = search(base_win + [{"term": {"event.code": "1"}}, {"term": {"process.name": "curl.exe"}}], 4)
-# E3 attribution: match by the curl ENTITY, not the name - Sysmon can emit E3 for a
-# short-lived curl with `Image: <unknown process>` (process.name empty) while still
-# carrying the correct process.entity_id (observed on this lab stack). Store all E3s
-# in the window; the verifier joins E1<->E3 by entity and records a GAP only when the
-# E3 entity is also missing.
-cur3_any = search(base_win + [{"term": {"event.code": "3"}}], 40)
-ps3 = search(base_win + [{"term": {"event.code": "3"}},
-                         {"terms": {"process.name": ["powershell.exe"]}}], 3)
-d23 = search(base_win + [{"term": {"event.code": "23"}},
-                         {"wildcard": {"file.name": "wdmp.zip"}}], 2)
 
-svh_refs = with_ids([ref(h["_source"]) for h in svh], svh)
+# ---------------------------------------------------------------- run window
+w0 = os.environ.get("RUN_WINDOW_START")
+w1 = os.environ.get("RUN_WINDOW_END")
+if not w0:
+    anchor = os.environ.get("RUN_ANCHOR_TS")
+    if not anchor:
+        raise SystemExit("RUN_WINDOW_START is required (no implicit 'now' window); "
+                         "alternatively pass RUN_ANCHOR_TS")
+    w0 = (datetime.fromisoformat(anchor.replace("Z", "+00:00"))
+          - timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+if not w1:
+    raise SystemExit("RUN_WINDOW_END is required (a run window must be finite)")
+window = {"gte": w0, "lte": w1}
+base_win = [{"term": {"host.name": HOST}}, {"range": {"@timestamp": window}}]
+
+# ------------------------------------------------- entry candidate resolution
+# A run's entry is the operator launch: a cmd.exe whose command line runs setup.bat
+# from the staged payload directory. Child/duplicate cmd events (same launch chain)
+# are excluded by requiring the exact payload path; if more than one candidate still
+# remains, the run scope is ambiguous and the builder aborts.
+ENTRY_PATTERN = os.environ.get("ENTRY_PATTERN", "*setup.bat*")
+candidates = search_desc([{"term": {"host.name": HOST}}, {"range": {"@timestamp": window}},
+                          {"term": {"event.code": "1"}},
+                          {"term": {"process.name": "cmd.exe"}},
+                          {"wildcard": {"process.command_line": ENTRY_PATTERN}}], size=20)
+# keep only the operator launch: cmd.exe NOT spawned by another cmd.exe
+candidates = [h for h in candidates
+              if (gp(h["_source"], "process.parent.name") or "").lower() != "cmd.exe"]
+if len(candidates) == 0:
+    # fall back to the raw Sysmon message text when ECS command_line is compacted
+    candidates = search_desc([{"term": {"host.name": HOST}}, {"range": {"@timestamp": window}},
+                              {"term": {"event.code": "1"}},
+                              {"term": {"process.name": "cmd.exe"}},
+                              {"wildcard": {"message": ENTRY_PATTERN}}], size=20)
+    candidates = [h for h in candidates
+                  if (gp(h["_source"], "process.parent.name") or "").lower() != "cmd.exe"]
+if len(candidates) == 0:
+    raise SystemExit("no setup.bat entry event inside the declared window")
+ts_set = sorted({h["_source"]["@timestamp"] for h in candidates})
+if len(ts_set) > 1:
+    raise SystemExit(
+        f"ambiguous run scope: {len(candidates)} distinct entry timestamps inside the window "
+        f"({ts_set}); narrow the window so exactly one launch fits")
+entry = candidates[0]
+run_started = entry["_source"]["@timestamp"]
+
+truncated_any = []
+
+
+def find(filters, cap=200):
+    hits, trunc = search_all(base_win + filters, cap)
+    if trunc:
+        truncated_any.append(f"cap={cap} filters={filters[:2]}")
+    return [ref(h) for h in hits]
+
+
+s2_reg = find([{"term": {"event.code": "13"}}, {"term": {"process.name": "reg.exe"}}], 20)
+s2_fod = find([{"term": {"event.code": "1"}}, {"term": {"process.name": "fodhelper.exe"}}], 10)
+s2_wsc = find([{"term": {"event.code": "1"}}, {"term": {"process.name": "wscript.exe"}}], 10)
+s2_psi = find([{"term": {"event.code": "1"}}, {"term": {"process.name": "powershell.exe"}},
+               {"wildcard": {"process.command_line": "*install.ps1*"}}], 10)
+s3_svh = find([{"term": {"event.code": "11"}}, {"wildcard": {"file.name": "svhw.ps1"}}], 10)
+s3_wmi = find([{"terms": {"event.code": ["19", "20", "21"]}},
+               {"term": {"winlog.event_data.Operation": "Created"}}], 30)
+s4_ntp = find([{"term": {"event.code": "1"}}, {"term": {"process.name": "notepad.exe"}}], 10)
+s4_con = find([{"term": {"event.code": "1"}}, {"term": {"process.parent.name": "WmiPrvSE.exe"}}], 10)
+s5_arp = find([{"term": {"event.code": "1"}}, {"terms": {"process.name": ["arp.exe", "ARP.EXE"]}}], 10)
+s5_files = find([{"term": {"event.code": "11"}},
+                 {"terms": {"file.name": ["info.txt", "_manifest.txt"]}}], 20)
+s6_zip_create = find([{"term": {"event.code": "11"}}, {"term": {"file.name": "wdmp.zip"}}], 10)
+s6_curl = find([{"term": {"event.code": "1"}}, {"term": {"process.name": "curl.exe"}}], 20)
+s6_net_ps = find([{"term": {"event.code": "3"}},
+                  {"term": {"process.name": "powershell.exe"}},
+                  {"term": {"destination.ip": SINK_IP}},
+                  {"term": {"destination.port": SINK_PORT}}], 20)
+s7_del = find([{"term": {"event.code": "23"}}, {"term": {"file.name": "wdmp.zip"}}], 10)
+
+# S6 network: only E3 owned by a curl entity AND aimed at the sink destination.
+curl_entities = {r["entity_id"] for r in s6_curl if r["entity_id"]}
+s6_net_curl = []
+if curl_entities:
+    all_e3, t3 = search_all(base_win + [{"term": {"event.code": "3"}}], MAX_RESULTS)
+    if t3:
+        truncated_any.append("E3 scan cap reached")
+    for h in all_e3:
+        s = h["_source"]
+        ent = clean(gp(s, "process.entity_id"))
+        dst = clean(gp(s, "destination.ip"))
+        port = str(clean(gp(s, "destination.port")))
+        if ent in curl_entities and dst == SINK_IP and port == str(SINK_PORT):
+            s6_net_curl.append(ref(h))
+
+# baseline telemetry: collector traffic inside the window (NOT campaign refs)
+baseline_e3, tb = search_all(base_win + [{"term": {"event.code": "3"}},
+                                         {"term": {"process.name": "elastic-otel-collector.exe"}}], 500)
+if tb:
+    truncated_any.append("baseline E3 cap reached")
+
+svh_refs = s3_svh
 if svh_refs and GUEST_HASH:
     svh_refs[0]["file_hash"] = GUEST_HASH.upper()
-    svh_refs[0]["file_hash_provenance"] = "guest probe; EID11 event carries no Hashes on this stack"
-
-stages = [
-    {"stage": "S1", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-     "input_artifacts": [], "output_artifacts": [],
-     "evidence_refs": with_ids([ref(s1_new["_source"])], [s1_new]),
-     "notes": "operator action: setup.bat launched via vmrun (declared; session 0, High integrity)"},
-    {"stage": "S2", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-     "input_artifacts": [], "output_artifacts": [],
-     "evidence_refs": with_ids([ref(h["_source"]) for h in reg[:2] + fod + wsc + psi], reg[:2] + fod + wsc + psi),
-     "notes": "registry->fodhelper TEMPORAL/CONTEXTUAL; ancestry verifier-checked"},
-    {"stage": "S3", "host": "wmi", "account": "WMI\\Duc", "status": "PASS",
-     "input_artifacts": ["ART-01-02"], "output_artifacts": [],
-     "evidence_refs": svh_refs + with_ids([ref(h["_source"]) for h in e19[:1] + e20[:1] + e21[:1]],
-                                          e19[:1] + e20[:1] + e21[:1]),
-     "notes": "registration sequence 19/20/21 all Created (gate PASS); binding refs verifier-checked; module integrity via guest hash"},
-    {"stage": "S4", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-     "input_artifacts": [], "output_artifacts": [],
-     "evidence_refs": with_ids([ref(h["_source"]) for h in ntp[:1] + wps[:1]], ntp[:1] + wps[:1]),
-     "notes": "activation: console notepad trigger; consumer under WmiPrvSE as SYSTEM"},
-    {"stage": "S5", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-     "input_artifacts": [], "output_artifacts": ["ART-06-01"],
-     "evidence_refs": with_ids([ref(h["_source"]) for h in arp[:1] + info[:1] + manf[:1]], arp[:1] + info[:1] + manf[:1]),
-     "notes": "in-process queries not independently evidenced; ARP parent entity == consumer entity (verifier)"},
-    {"stage": "S6", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-     "input_artifacts": ["ART-06-01"], "output_artifacts": ["ART-07-01"],
-     "evidence_refs": with_ids([ref(h["_source"]) for h in zcr[:1] + cur1[:2] + cur3_any + ps3[:1]],
-                               zcr[:1] + cur1[:2] + cur3_any + ps3[:1]) +
-         [{"kind": "receipt", "artifact": "ART-07-01-*.json",
-           "detail": "sink receipt (server-side); raw sha256 + manifest canonical hash"}],
-     "notes": "archive create by consumer entity; E3 ownership by process.entity_id (name-less E3 accepted; GAP only when entity missing); receipt proves transfer"},
-    {"stage": "S7", "host": "wmi", "account": "NT AUTHORITY\\SYSTEM", "status": "PASS",
-     "input_artifacts": [], "output_artifacts": ["ART-08-01"],
-     "evidence_refs": with_ids([ref(d23[0]["_source"])] if d23 else [], d23[:1]),
-     "notes": "wdmp.zip deletion; create/delete same file.path (verifier)"},
-]
+    svh_refs[0]["file_hash_provenance"] = ("guest probe; EID11 event carries no Hashes "
+                                           "on this stack")
 
 run_dir = ROOT / "evidence" / "runs" / RUN
+if not run_dir.is_dir():
+    raise SystemExit(f"missing run dir {run_dir}; create it and place the artifacts first")
+
+
+def stage(name, host, account, refs, notes, in_art=(), out_art=()):
+    # non-event refs (receipt/artifact) carry no timestamp: keep them as-is
+    kept = [r for r in refs
+            if r.get("kind") != "event" or in_window(r.get("ts", ""), w0, w1)]
+    kept = dedupe([r for r in kept if r.get("kind") == "event"]) + \
+        [r for r in kept if r.get("kind") != "event"]
+    return {"stage": name, "host": host, "account": account,
+            "status": "OBSERVED" if any(r.get("kind") == "event" for r in kept) else "NOT RUN",
+            "input_artifacts": list(in_art), "output_artifacts": list(out_art),
+            "evidence_refs": kept, "notes": notes}
+
+
+stages = [
+    stage("S1", HOST, "WMI\\Duc", [ref(entry)],
+          "operator action: setup.bat launched via vmrun (declared)"),
+    stage("S2", HOST, "WMI\\Duc", s2_reg + s2_fod + s2_wsc + s2_psi,
+          "registry->fodhelper TEMPORAL/CONTEXTUAL; ancestry verifier-checked"),
+    stage("S3", HOST, "WMI\\Duc", svh_refs + s3_wmi,
+          "EID 19/20/21 Created; binding refs verifier-checked; module integrity via guest hash",
+          in_art=["ART-01-02"]),
+    stage("S4", HOST, "NT AUTHORITY\\SYSTEM", s4_ntp + s4_con,
+          "activation: notepad trigger -> consumer under WmiPrvSE/SYSTEM "
+          "(verifier checks user + parent identity)"),
+    stage("S5", HOST, "NT AUTHORITY\\SYSTEM", s5_arp + s5_files,
+          "in-process queries not independently evidenced; ARP parent entity == consumer "
+          "entity (verifier)", out_art=["ART-06-01"]),
+    stage("S6", HOST, "NT AUTHORITY\\SYSTEM",
+          s6_zip_create + s6_curl + s6_net_curl + s6_net_ps
+          + [{"kind": "receipt", "artifact": "ART-07-01-*.json",
+              "detail": "sink receipt (server-side): name/size/sha256 + manifest hash"}],
+          f"archive create + curl upload-intent E1s + entity-owned E3s to the sink "
+          f"({SINK_IP}:{SINK_PORT}); receipt proves transfer (archive bytes are not committed)",
+          in_art=["ART-06-01"], out_art=["ART-07-01"]),
+    stage("S7", HOST, "NT AUTHORITY\\SYSTEM", s7_del,
+          "wdmp.zip deletion; create/delete same path (verifier)", out_art=["ART-08-01"]),
+]
+
 idx = []
 for aid, rel, prod, cons in (("ART-01-01", "payload/setup.bat", "S1", ""),
                              ("ART-01-02", "payload/consumer.ps1", "S3", "S7"),
@@ -197,14 +300,40 @@ for aid, rel, prod, cons in (("ART-01-01", "payload/setup.bat", "S1", ""),
     p = run_dir / rel
     if not p.is_file():
         raise SystemExit(f"missing artifact {rel}")
-    idx.append({"artifact_id": aid, "path": rel, "sha256": raw(p) if p.suffix.lower() == ".zip" else canon(p),
+    idx.append({"artifact_id": aid, "path": rel,
+                "sha256": raw(p) if p.suffix.lower() == ".zip" else canon(p),
                 "producer_stage": prod, "consumer_stage": cons})
-ledger = {"run_id": RUN, "scenario_id": "WMI-LAB-1",
-          "created_utc": created_utc,  # schema: whole seconds, Z
-          "secrets_policy": "no-secrets-allowed", "stages": stages, "artifact_index": idx}
+
+ledger = {
+    "run_id": RUN, "scenario_id": "WMI-LAB-1",
+    "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "run_window_utc": {"start": w0, "end": w1},
+    "run_started_utc": run_started,
+    "secrets_policy": "no-secrets-allowed",
+    "stages": stages,
+    "artifact_index": idx,
+    "baseline_telemetry": {
+        "note": "non-campaign background telemetry inside the window; never counted as "
+                "campaign evidence",
+        "collector_e3_count": len(baseline_e3),
+        "collector_e3_sample_ids": [h["_id"] for h in baseline_e3[:5]],
+    },
+    "builder": {
+        "entry_es_id": entry["_id"],
+        "entry_candidates_in_window": len(candidates),
+        "event_refs": sum(len(s["evidence_refs"]) for s in stages),
+        "unique_es_ids": len({r.get("es_id") for s in stages for r in s["evidence_refs"]
+                              if r.get("kind") == "event"}),
+        "truncations": truncated_any,
+    },
+}
 out = run_dir / f"{RUN}.json"
 out.write_text(json.dumps(ledger, indent=2, ensure_ascii=False), encoding="utf-8")
 print("wrote", out)
-print("stages:", [(s["stage"], s["status"]) for s in stages])
-print("event refs:", sum(1 for s in stages for r in s["evidence_refs"] if r.get("kind") == "event"))
+print("window:", w0, "->", w1, "| entry:", run_started, f"(candidates={len(candidates)})")
+print("stages:", [(s["stage"], s["status"], len(s["evidence_refs"])) for s in stages])
+print("refs:", ledger["builder"]["event_refs"],
+      "| unique ids:", ledger["builder"]["unique_es_ids"])
+print("baseline collector E3 (separate):", len(baseline_e3),
+      "| truncations:", truncated_any or "none")
 print("artifacts:", [(a["artifact_id"], a["sha256"][:8]) for a in idx])

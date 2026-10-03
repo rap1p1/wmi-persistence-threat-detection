@@ -11,7 +11,7 @@ Naming: `reference-run-<run_id>.md` (no date stamps in file names).
 |---|---|---|
 | [reference-run-20261003-01.md](reference-run-20261003-01.md) | RUN-20261003-01 | ACCEPTED (query-level detection; rules not yet live) |
 | [reference-run-20261003-02.md](reference-run-20261003-02.md) | RUN-20261003-02 | ACCEPTED — live-alert run (rebuild: entity-based E3 ownership) |
-| [reference-run-20261003-03.md](reference-run-20261003-03.md) | RUN-20261003-03 | ACCEPTED — final export run: 14 unique clusters / 25 stored alerts |
+| [reference-run-20261003-03.md](reference-run-20261003-03.md) | RUN-20261003-03 | ACCEPTED (ES-BACKED) — stored-alert manifest committed; re-matching explained |
 
 Reports are written after the acceptance verifier passes; a report never claims more
 than the ledger + verifier establish. Labels: design docs are intent; reports are

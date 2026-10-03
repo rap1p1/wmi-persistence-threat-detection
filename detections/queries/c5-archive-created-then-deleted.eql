@@ -1,25 +1,24 @@
 /*
- * Detection basis: T1070.004 deletion telemetry chained to archive creation. The
- * PowerShell status-channel dependency was REMOVED (the transfer process is curl; a
- * status message must not be read as a transfer).
+ * Detection basis: T1070.004 deletion telemetry chained to archive creation.
  * Telemetry: Sysmon EID 11 (zip create) + EID 23 (zip delete).
- * JOIN LIMITATION: EQL cannot bind the created archive path into the deletion event;
- * whether the SAME file.path was created then deleted is asserted by the acceptance
- * verifier from the ledger/event fields. No archive name is hard-coded; no
- * transfer-success inference is made.
+ * CORRELATION (verified on ES 9.5.3): EQL supports a PER-CLAUSE `by` key, so the
+ * deletion is joined to the creation of the SAME archive path:
+ *   step1 (create) by file.path, step2 (delete) by file.path
+ * No archive name is hard-coded and deletion does not imply transfer success; the
+ * acceptance verifier re-checks the path equality from the ledger.
  */
-sequence by host.name with maxspan=2m
+sequence with maxspan=2m
 
   /* archive creation */
   [file where
     winlog.event_id : "11"
     and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
     and file.extension : "zip"
-  ]
+  ] by file.path
 
-  /* archive deletion (same-path verified by the verifier) */
+  /* archive deletion of that same path */
   [file where
     winlog.event_id : "23"
     and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
     and file.extension : "zip"
-  ]
+  ] by file.path

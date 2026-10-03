@@ -1,5 +1,77 @@
 ﻿# Change record
 
+## 2026-10-03 - Remediation round: strict acceptance, run scoping, provenance
+
+Everything below is a response to an external review of `b874f26`; each item is FIXED,
+DOCUMENTED LIMITATION, or NOT VERIFIABLE WITH AVAILABLE EVIDENCE.
+
+**P0 builder / run scoping (FIXED)**
+- `scripts/build_ledger_run.py` now requires an explicit finite window
+  (`RUN_WINDOW_START/END`, no implicit `now`), resolves the entry with a DESCENDING
+  query and aborts on ambiguity, filters refs to the window, paginates with
+  `search_after` (truncation reported, never silent), and keeps baseline
+  (collector) E3 traffic in a separate `baseline_telemetry` block instead of S6.
+- Only entity-verified curl E3s aimed at the sink enter S6; refs are de-duplicated by
+  ES `_id`; stage status is `OBSERVED` (the builder does not self-certify PASS).
+- Ledger now records `created_utc` (ledger write time) **and** `run_started_utc`
+  (S1 event) plus `run_window_utc`.
+- All three run ledgers were rebuilt with the new builder (RUN-03: 22 refs / 22 unique
+  ids, 38 collector E3s separated).
+
+**P0 verifier (FIXED)**
+- `_check_placeholders()` is now called; ISO-8601 UTC timestamps, numeric event codes,
+  `es_id` presence and per-stage required fields are enforced; duplicate event refs
+  inside a stage fail; artifact paths are checked for traversal/absolute escapes.
+- ES re-verification compares timestamp, event code, host, and the ledger's join /
+  destination fields, handles 0/multiple hits explicitly, de-duplicates by `_id` and
+  reports refs vs unique documents; acceptance is labelled **ACCEPTED (ES-BACKED)**
+  versus **ACCEPTED-LEDGER-ONLY**, and the aggregate line no longer claims an
+  unconditional "ALL RUNS ACCEPTED" when a run was ledger-only.
+- S4 assertion strengthened (consumer must be SYSTEM with parent WmiPrvSE/scrcons;
+  trigger must precede the consumer; missing parent name is a GAP, not a silent pass).
+- S6 checks EVERY curl E1 against an entity-matched E3 to the sink destination, with
+  ordering; a foreign-entity sink E3 is a contradiction (FAIL), absent attribution is
+  a GAP. S3 module hash is required for acceptance. C2 compares normalised object
+  references (not substrings) and requires an ordered, in-window sequence. S7 parses
+  the cleanup artifact, checks `run_id` and every check result. Receipt validation
+  binds run/host, validates size/sha256/filenames and compares the receipt manifest
+  hash directly against the ledger ART-06-01 hash.
+- Archive bytes are gitignored: the receipt is the committed transfer evidence; the
+  verifier verifies bytes only when the archive is actually present and says so.
+
+**P0 EQL / rules (FIXED, correcting an earlier wrong claim)**
+- Verified on Elasticsearch 9.5.3 that EQL **supports a per-clause `by` key**: C3 now
+  joins interpreter `process.entity_id` to discovery `process.parent.entity_id`, and
+  C5 joins zip create/delete by `file.path`. The previous "EQL cannot bind asymmetric
+  fields" statement was wrong and has been removed from the docs.
+- `tools/validate_repository.py` now compares the normalised content of all 11 `.eql`
+  sources against their exported queries (a one-character drift fails), with a
+  negative test.
+- S4 mapping corrected: it is an **E1-only upload-intent lab analogue**; the T1041 tag
+  was removed and the rule is described as not proving a connection, a C2 channel or a
+  successful transfer (receipt proves the transfer).
+
+**P1 evidence / provenance / docs (FIXED where possible)**
+- Stored alerts for RUN-03 exported with ids/timestamps/ancestry to
+  `evidence/runs/RUN-20261003-03/alert-manifest.json`; the report distinguishes stored
+  alerts (upper bound, re-matching explained by alert timestamps) from EQL clusters.
+- Ledgers carry a `provenance` block (commit, Sysmon config hash, rule-export hash,
+  observed versions, sink receipt hash); anything not captured is labelled
+  "not captured" (the commit is the capture-time HEAD - documented, not implied).
+- Report timestamps that were minute-approximations are labelled as such; the counts
+  "22 refs / 22 unique ids" are stated explicitly.
+- Root README, detection catalogue, telemetry contract, attack-detection mapping
+  (marked HISTORICAL), reports/docs/scripts/payloads indexes and the review snapshot
+  (marked SUPERSEDED) all describe the same current state; the CI workflow claims only
+  what it runs.
+
+**Documented limitations (unchanged, restated)**
+- High-integrity operator session: the UAC bypass mechanism is replayed without a
+  Medium->High transition; no reboot-survival test; in-process discovery not
+  independently evidenced; receipt is not an archive-byte check; the 5-minute idle
+  control is a negative check, not a false-positive rate.
+
+
 ## 2026-10-03 - RUN-20261003-03 (final export) and E3-by-entity resolution
 
 - E3 attribution resolved at the technical key: Sysmon emits the curl E3 with `Image: <unknown process>` (process.name empty) but with the correct process.entity_id; the ledger now stores all window E3s and the verifier joins E1<->E3 BY ENTITY (GAP only when the entity is also missing). RUN-20261003-02 rebuilt and verified with this join (S6 ownership OK, name-less annotation kept).

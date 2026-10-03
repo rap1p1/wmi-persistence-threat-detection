@@ -1,14 +1,19 @@
 {
   "run_id": "RUN-20261003-01",
   "scenario_id": "WMI-LAB-1",
-  "created_utc": "2026-10-03T09:54:40Z",
+  "created_utc": "2026-10-03T16:13:46Z",
+  "run_window_utc": {
+    "start": "2026-10-03T09:54:40Z",
+    "end": "2026-10-03T09:58:30Z"
+  },
+  "run_started_utc": "2026-10-03T09:54:45.815Z",
   "secrets_policy": "no-secrets-allowed",
   "stages": [
     {
       "stage": "S1",
       "host": "wmi",
       "account": "WMI\\Duc",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [],
       "output_artifacts": [],
       "evidence_refs": [
@@ -21,6 +26,7 @@
           "process_name": "cmd.exe",
           "entity_id": "{88E52A21-D0E5-6AC0-6201-000000000800}",
           "parent_entity_id": "{88E52A21-CE4F-6AC0-2D00-000000000800}",
+          "parent_name": "vmtoolsd.exe",
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -34,13 +40,13 @@
           "wmi_filter": null
         }
       ],
-      "notes": "operator action: setup.bat launched via vmrun (declared; session 0, High integrity)"
+      "notes": "operator action: setup.bat launched via vmrun (declared)"
     },
     {
       "stage": "S2",
       "host": "wmi",
       "account": "WMI\\Duc",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [],
       "output_artifacts": [],
       "evidence_refs": [
@@ -53,6 +59,7 @@
           "process_name": "reg.exe",
           "entity_id": "{88E52A21-D0E5-6AC0-6501-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -74,6 +81,7 @@
           "process_name": "reg.exe",
           "entity_id": "{88E52A21-D0E5-6AC0-6601-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -95,6 +103,7 @@
           "process_name": "fodhelper.exe",
           "entity_id": "{88E52A21-D0E5-6AC0-6701-000000000800}",
           "parent_entity_id": "{88E52A21-D0E5-6AC0-6201-000000000800}",
+          "parent_name": "cmd.exe",
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -116,6 +125,7 @@
           "process_name": "wscript.exe",
           "entity_id": "{88E52A21-D0E6-6AC0-6901-000000000800}",
           "parent_entity_id": "{88E52A21-D0E5-6AC0-6701-000000000800}",
+          "parent_name": "fodhelper.exe",
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -137,6 +147,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D0E6-6AC0-6A01-000000000800}",
           "parent_entity_id": "{88E52A21-D0E6-6AC0-6901-000000000800}",
+          "parent_name": "wscript.exe",
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -150,13 +161,13 @@
           "wmi_filter": null
         }
       ],
-      "notes": "registry->fodhelper TEMPORAL/CONTEXTUAL; ancestry fodhelper->wscript->ps via parent.entity_id (verifier)"
+      "notes": "registry->fodhelper TEMPORAL/CONTEXTUAL; ancestry verifier-checked"
     },
     {
       "stage": "S3",
       "host": "wmi",
       "account": "WMI\\Duc",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [
         "ART-01-02"
       ],
@@ -171,6 +182,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D0E6-6AC0-6A01-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": "C:\\Windows\\Temp\\svhw.ps1",
           "file_name": "svhw.ps1",
@@ -183,7 +195,7 @@
           "wmi_consumer": null,
           "wmi_filter": null,
           "file_hash": "6B90E6F8125A48E63DF9CCA193621A3105E523423ABEA02542D764A379E8C80A",
-          "file_hash_provenance": "guest probe 2026-10-03T09:56Z; the EID11 event carries no Hashes on this stack"
+          "file_hash_provenance": "guest probe; EID11 event carries no Hashes on this stack"
         },
         {
           "kind": "event",
@@ -194,6 +206,7 @@
           "process_name": null,
           "entity_id": null,
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -215,6 +228,7 @@
           "process_name": "",
           "entity_id": null,
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -236,6 +250,7 @@
           "process_name": null,
           "entity_id": null,
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -249,13 +264,13 @@
           "wmi_filter": "__EventFilter.Name=\\\"NotepadFilter\\"
         }
       ],
-      "notes": "module integrity: guest svhw.ps1 sha256 == staged consumer raw (ART-01-02); binding refs 21.Consumer/Filter vs 19/20 Name cross-checked by verifier"
+      "notes": "EID 19/20/21 Created; binding refs verifier-checked; module integrity via guest hash"
     },
     {
       "stage": "S4",
       "host": "wmi",
       "account": "NT AUTHORITY\\SYSTEM",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [],
       "output_artifacts": [],
       "evidence_refs": [
@@ -268,6 +283,7 @@
           "process_name": "notepad.exe",
           "entity_id": "{88E52A21-D110-6AC0-2C02-000000000800}",
           "parent_entity_id": "{88E52A21-D110-6AC0-2A02-000000000800}",
+          "parent_name": "cmd.exe",
           "user": "Duc",
           "file_path": null,
           "file_name": null,
@@ -289,6 +305,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
           "parent_entity_id": "{88E52A21-CE63-6AC0-5E00-000000000800}",
+          "parent_name": "WmiPrvSE.exe",
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -302,13 +319,13 @@
           "wmi_filter": null
         }
       ],
-      "notes": "activation: console notepad trigger; consumer under WmiPrvSE as SYSTEM (parent entity = WmiPrvSE identity)"
+      "notes": "activation: notepad trigger -> consumer under WmiPrvSE/SYSTEM (verifier checks user + parent identity)"
     },
     {
       "stage": "S5",
       "host": "wmi",
       "account": "NT AUTHORITY\\SYSTEM",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [],
       "output_artifacts": [
         "ART-06-01"
@@ -323,6 +340,7 @@
           "process_name": "ARP.EXE",
           "entity_id": "{88E52A21-D116-6AC0-7602-000000000800}",
           "parent_entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
+          "parent_name": "powershell.exe",
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -344,6 +362,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": "C:\\Windows\\Temp\\wdmp\\info.txt",
           "file_name": "info.txt",
@@ -365,6 +384,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": "C:\\Windows\\Temp\\wdmp\\_manifest.txt",
           "file_name": "_manifest.txt",
@@ -378,13 +398,13 @@
           "wmi_filter": null
         }
       ],
-      "notes": "in-process queries (Get-CimInstance etc.) not independently evidenced; ARP.EXE parent entity == consumer entity (verifier)"
+      "notes": "in-process queries not independently evidenced; ARP parent entity == consumer entity (verifier)"
     },
     {
       "stage": "S6",
       "host": "wmi",
       "account": "NT AUTHORITY\\SYSTEM",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [
         "ART-06-01"
       ],
@@ -401,6 +421,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": "C:\\Windows\\Temp\\wdmp.zip",
           "file_name": "wdmp.zip",
@@ -422,6 +443,7 @@
           "process_name": "curl.exe",
           "entity_id": "{88E52A21-D117-6AC0-8202-000000000800}",
           "parent_entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
+          "parent_name": "powershell.exe",
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -443,6 +465,7 @@
           "process_name": "curl.exe",
           "entity_id": "{88E52A21-D117-6AC0-8502-000000000800}",
           "parent_entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
+          "parent_name": "powershell.exe",
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -464,6 +487,29 @@
           "process_name": "curl.exe",
           "entity_id": "{88E52A21-D117-6AC0-8202-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
+          "user": "SYSTEM",
+          "file_path": null,
+          "file_name": null,
+          "dst_ip": "192.168.106.1",
+          "dst_port": 9180,
+          "registry_path": null,
+          "registry_value": null,
+          "wmi_name": null,
+          "wmi_operation": null,
+          "wmi_consumer": null,
+          "wmi_filter": null
+        },
+        {
+          "kind": "event",
+          "es_id": "AaEBMN8OoLLJxo_TGfyt",
+          "ts": "2026-10-03T09:55:38.001Z",
+          "event": "3",
+          "detail": "Network connection detected:",
+          "process_name": null,
+          "entity_id": "{88E52A21-D117-6AC0-8502-000000000800}",
+          "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -485,6 +531,7 @@
           "process_name": "powershell.exe",
           "entity_id": "{88E52A21-D115-6AC0-6902-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": null,
           "file_name": null,
@@ -500,16 +547,16 @@
         {
           "kind": "receipt",
           "artifact": "ART-07-01-*.json",
-          "detail": "sink receipt (server-side); raw sha256 + manifest canonical hash"
+          "detail": "sink receipt (server-side): name/size/sha256 + manifest hash"
         }
       ],
-      "notes": "archive create (wdmp.zip) by consumer entity; curl E1/E3 entity-owned; PS status channel is NOT the transfer (S4 intent+connection; receipt proves transfer)"
+      "notes": "archive create + curl upload-intent E1s + entity-owned E3s to the sink (192.168.106.1:9180); receipt proves transfer (archive bytes are not committed)"
     },
     {
       "stage": "S7",
       "host": "wmi",
       "account": "NT AUTHORITY\\SYSTEM",
-      "status": "PASS",
+      "status": "OBSERVED",
       "input_artifacts": [],
       "output_artifacts": [
         "ART-08-01"
@@ -524,6 +571,7 @@
           "process_name": "cmd.exe",
           "entity_id": "{88E52A21-D119-6AC0-8F02-000000000800}",
           "parent_entity_id": null,
+          "parent_name": null,
           "user": "SYSTEM",
           "file_path": "C:\\Windows\\Temp\\wdmp.zip",
           "file_name": "wdmp.zip",
@@ -537,7 +585,7 @@
           "wmi_filter": null
         }
       ],
-      "notes": "wdmp.zip deletion; create/delete same file.path (verifier); Clear-Content history not event-evidenced"
+      "notes": "wdmp.zip deletion; create/delete same path (verifier)"
     }
   ],
   "artifact_index": [
@@ -583,5 +631,46 @@
       "producer_stage": "S7",
       "consumer_stage": ""
     }
-  ]
+  ],
+  "baseline_telemetry": {
+    "note": "non-campaign background telemetry inside the window; never counted as campaign evidence",
+    "collector_e3_count": 35,
+    "collector_e3_sample_ids": [
+      "AaEBL98OoLLJxo74itV9",
+      "AaEBMN8OoLLJxo4WnSVR",
+      "AaEBMN8OoLLJxo5-tmcZ",
+      "AaEBMN8OoLLJxo5-tmca",
+      "AaEBMN8OoLLJxo6Luw_l"
+    ]
+  },
+  "builder": {
+    "entry_es_id": "AaEBMN8OoLLJxo4Fkbwr",
+    "entry_candidates_in_window": 1,
+    "event_refs": 23,
+    "unique_es_ids": 22,
+    "truncations": []
+  },
+  "provenance": {
+    "repo_commit": "b874f26c92a20a83f2a81849339fa98e32ca5591",
+    "repo_commit_subject": "run: RUN-20261003-03 final export (14 clusters/25 stored alerts, S4 live), E3 ownership by entity across runs, docs sync",
+    "working_tree_dirty": true,
+    "sysmon_config_sha256": "21249655B5AACFF2B0787814A1E1D65DAD676BC593A7FF813D8EA7DEAC2A7D6E",
+    "rule_export_sha256": "52F94EF9FC8EC41360DEF2ADC2DB6076BD2A32CA628B9B6362825B7BCA877043",
+    "rules_live_in_kibana": "11 rules imported 2026-10-03 (export sha recorded below); old S4 rule deleted; ids verified against the export",
+    "elasticsearch_version_observed": "9.5.3",
+    "sysmon_version": "15.21 (observed in guest: C:\\Windows\\Sysmon.exe VersionInfo)",
+    "elastic_agent_version": "9.5.3 (observed in guest: C:\\Program Files\\Elastic\\Agent)",
+    "integration": "logs-windows.sysmon_operational (data stream observed in ES docs)",
+    "sink": {
+      "receipt_file": "ART-07-01-RUN-20261003-01.json",
+      "receipt_sha256": "FF7B72F5720087D5E42A9C464D4916EC4B2A0E3A7B7F1D882561010CC1CBD896",
+      "server": "scripts/sink_server.py (internal HTTP sink)"
+    },
+    "run_window_utc": {
+      "start": "2026-10-03T09:54:40Z",
+      "end": "2026-10-03T09:58:30Z"
+    },
+    "run_started_utc": "2026-10-03T09:54:45.815Z",
+    "captured_utc": "2026-10-03T16:20:19Z"
+  }
 }

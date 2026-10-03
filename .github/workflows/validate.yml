@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Offline tests (rule ids, ledger schema, verifier negatives)
+      - name: Offline tests (rule ids, ledger schema, acceptance negatives)
         run: python scripts/tests/test_offline.py
       - name: Repository validation
         run: python tools/validate_repository.py

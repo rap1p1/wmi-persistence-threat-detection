@@ -7,12 +7,13 @@ the acceptance rules are unit-testable without an Elasticsearch instance.
 import hashlib
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 RUN_ID_RE = re.compile(r"^RUN-[0-9]{8}-[0-9]{2,}$")
 ART_ID_RE = re.compile(r"^ART-[0-9]{2}-[0-9]{2}$")
 STAGE_RE = re.compile(r"^S[1-7](b)?$")
-STATUSES = ("NOT RUN", "PARTIAL", "PASS", "SENSOR GAP", "INGEST/MAPPING GAP",
+STATUSES = ("NOT RUN", "OBSERVED", "PARTIAL", "PASS", "SENSOR GAP", "INGEST/MAPPING GAP",
             "PREVENTED", "DENIED", "CHAIN BROKEN")
 REF_KINDS = ("event", "register", "receipt", "artifact", "rule", "scorecard",
              "decision", "session", "impact")
@@ -24,6 +25,17 @@ def canon_sha256(data: bytes) -> str:
     return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest().upper()
 
 
+def iso_utc(value) -> bool:
+    """True when value is an ISO-8601 UTC timestamp (Z or +00:00), seconds precision."""
+    if not isinstance(value, str):
+        return False
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return dt.tzinfo is not None and dt.utcoffset() == timedelta(0)
+
+
 def ts_within(recorded: str, actual: str, tolerance_s: float = 5.0):
     """True if recorded and actual ISO-8601 Z timestamps differ by <= tolerance.
 
@@ -31,11 +43,10 @@ def ts_within(recorded: str, actual: str, tolerance_s: float = 5.0):
     from Elasticsearch (the index is the source of truth; the ledger row must agree).
     Returns None when either value is not a parseable ISO-8601 Z timestamp.
     """
-    from datetime import datetime, timezone
     try:
         a = datetime.fromisoformat(recorded.replace("Z", "+00:00")).astimezone(timezone.utc)
         b = datetime.fromisoformat(actual.replace("Z", "+00:00")).astimezone(timezone.utc)
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, TypeError):
         return None
     return abs((a - b).total_seconds()) <= tolerance_s
 
@@ -66,9 +77,15 @@ def ledger_validate(ledger: dict):
         errors.append("scenario_id != WMI-LAB-1")
     if ledger.get("secrets_policy") != "no-secrets-allowed":
         errors.append("secrets_policy != no-secrets-allowed")
-    created = ledger.get("created_utc") or ""
-    if not re.match(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", created):
-        errors.append("created_utc is missing or not an ISO-8601 Z timestamp")
+    for key in ("created_utc", "run_started_utc"):
+        val = ledger.get(key)
+        if val is None:
+            continue
+        if not iso_utc(val):
+            errors.append(f"{key} is not an ISO-8601 UTC timestamp: {val!r}")
+    win = ledger.get("run_window_utc")
+    if not isinstance(win, dict) or not iso_utc(win.get("start")) or not iso_utc(win.get("end")):
+        errors.append("run_window_utc.start/end must be ISO-8601 UTC timestamps")
     stages = ledger.get("stages")
     if not isinstance(stages, list) or not stages:
         errors.append("stages missing or empty")
@@ -90,8 +107,17 @@ def ledger_validate(ledger: dict):
             for ref in s.get("evidence_refs") or []:
                 if not isinstance(ref, dict) or ref.get("kind") not in REF_KINDS:
                     errors.append(f"stage {s.get('stage')}: invalid evidence_ref kind {ref!r}")
+                    continue
+                if ref.get("kind") == "event":
+                    if not ref.get("es_id"):
+                        errors.append(f"stage {s.get('stage')}: event ref without es_id")
+                    if not iso_utc(ref.get("ts")):
+                        errors.append(f"stage {s.get('stage')}: event ref ts not ISO-8601 UTC "
+                                      f"({ref.get('ts')!r})")
+                    if not str(ref.get("event", "")).isdigit():
+                        errors.append(f"stage {s.get('stage')}: event ref without a numeric "
+                                      f"event code")
             seen.add(s.get("stage"))
-        # A full run must have every S1..S7 row; missing rows are violations.
         for n in range(1, 8):
             if f"S{n}" not in seen:
                 errors.append(f"missing stage row S{n}")
@@ -99,20 +125,25 @@ def ledger_validate(ledger: dict):
     if not isinstance(idx, list):
         errors.append("artifact_index missing or not a list")
     else:
+        seen_art = set()
         for a in idx:
             if not isinstance(a, dict):
                 errors.append("artifact_index row is not an object")
                 continue
             if not ART_ID_RE.match(a.get("artifact_id") or ""):
                 errors.append(f"invalid artifact_id {a.get('artifact_id')!r}")
+            if a.get("artifact_id") in seen_art:
+                errors.append(f"duplicate artifact_id {a.get('artifact_id')!r} in artifact_index")
+            seen_art.add(a.get("artifact_id"))
             if not re.match(r"^[0-9A-F]{64}$", a.get("sha256") or ""):
                 errors.append(f"artifact {a.get('artifact_id')}: sha256 not 64 uppercase hex")
+            errors.extend(f"artifact {a.get('artifact_id')}: {e}" for e in path_violations(a.get("path")))
     known = {"run_id", "scenario_id", "created_utc", "secrets_policy", "notes",
-             "stages", "artifact_index"}
+             "stages", "artifact_index", "run_window_utc", "run_started_utc",
+             "baseline_telemetry", "builder", "provenance"}
     extra = set(ledger) - known
     if extra:
         errors.append(f"unexpected top-level keys: {sorted(extra)}")
-    # stage rows: reject unknown keys beyond the schema set
     stage_keys = {"stage", "host", "account", "status", "input_artifacts",
                   "output_artifacts", "evidence_refs", "rollback_status", "notes"}
     for s in stages:
@@ -126,6 +157,19 @@ def ledger_validate(ledger: dict):
             extra = set(a) - idx_keys
             if extra:
                 errors.append(f"artifact {a.get('artifact_id')}: unexpected keys {sorted(extra)}")
+    return errors
+
+
+def path_violations(path):
+    """Reject artifact paths that escape the run directory or are absolute."""
+    errors = []
+    if not isinstance(path, str) or not path:
+        return ["empty artifact path"]
+    if path.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", path):
+        errors.append(f"absolute artifact path not allowed: {path!r}")
+    parts = [p for p in re.split(r"[\\/]+", path) if p not in ("", ".")]
+    if ".." in parts:
+        errors.append(f"path traversal not allowed: {path!r}")
     return errors
 
 
@@ -144,8 +188,13 @@ def artifact_violations(ledger: dict, run_dir: Path):
 
 # --- sink receipt / transfer integrity --------------------------------------
 
-def receipt_validate(receipt: dict):
-    """Structural + equality checks for the sink receipt (ART-07-01)."""
+def receipt_validate(receipt: dict, ledger=None):
+    """Structural + cross-binding checks for the sink receipt (ART-07-01).
+
+    When `ledger` is supplied, the receipt must belong to the SAME run and host, and
+    its manifest hash must equal the ledger's ART-06-01 hash (direct comparison - the
+    receipt on this stack carries no embedded manifest text).
+    """
     errors = []
     if not isinstance(receipt, dict):
         return ["receipt is not an object"]
@@ -154,17 +203,51 @@ def receipt_validate(receipt: dict):
     payload = receipt.get("payload")
     if not isinstance(payload, dict):
         return errors + ["receipt payload missing"]
-    if not RUN_ID_RE.match(payload.get("run_id") or ""):
+    rid = payload.get("run_id")
+    if not RUN_ID_RE.match(rid or ""):
         errors.append("receipt run_id missing/invalid")
     if not payload.get("host"):
         errors.append("receipt host missing")
+    if ledger is not None:
+        if rid != ledger.get("run_id"):
+            errors.append(f"receipt run_id {rid!r} != ledger run_id {ledger.get('run_id')!r}")
+        hosts = {s.get("host") for s in ledger.get("stages", []) if s.get("host")}
+        if hosts and payload.get("host") not in hosts:
+            errors.append(f"receipt host {payload.get('host')!r} not among ledger hosts {sorted(hosts)}")
+        art6 = next((a for a in ledger.get("artifact_index", [])
+                     if a.get("artifact_id") == "ART-06-01"), None)
+        rec_manifest = payload.get("manifest_sha256")
+        if art6:
+            if not rec_manifest:
+                errors.append("receipt manifest_sha256 missing but ledger indexes ART-06-01")
+            elif str(rec_manifest).upper() != str(art6.get("sha256", "")).upper():
+                errors.append(f"receipt manifest_sha256 {rec_manifest!r} != ledger ART-06-01 "
+                              f"{art6.get('sha256')!r}")
+        if receipt.get("run_id") and receipt.get("run_id") != ledger.get("run_id"):
+            errors.append("receipt top-level run_id != ledger run_id")
     files = payload.get("sink_files") or []
     if not isinstance(files, list) or not files:
         errors.append("receipt sink_files empty or missing (transfer FAIL)")
+    names = set()
     for f in files:
+        if not isinstance(f, dict):
+            errors.append("receipt sink_files entry is not an object")
+            continue
         for key in ("name", "size", "sha256"):
             if key not in f:
                 errors.append(f"receipt sink file {f.get('name')} missing {key}")
+        name = f.get("name")
+        if not isinstance(name, str) or not name or "/" in name or "\\" in name:
+            errors.append(f"receipt sink file name is not a bare filename: {name!r}")
+        elif name in names:
+            errors.append(f"receipt sink file listed twice: {name}")
+        else:
+            names.add(name)
+        size = f.get("size")
+        if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+            errors.append(f"receipt sink file {name}: size must be a positive integer, got {size!r}")
+        if not re.match(r"^[0-9A-Fa-f]{64}$", str(f.get("sha256") or "")):
+            errors.append(f"receipt sink file {name}: sha256 not 64 hex chars")
     return errors
 
 

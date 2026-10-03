@@ -1,4 +1,11 @@
-﻿# Attack-to-detection mapping
+﻿# Attack-to-detection mapping (HISTORICAL SNAPSHOT)
+
+> **Status: historical.** This document describes the 2026-04 scenario code and the
+> rule set as it stood before the 2026-10-03 remediation. Several rules were renamed
+> and rewritten since (S4 is now an E1-only upload-intent signal; C3/C5 use per-clause
+> `by` joins; C4 no longer contains a network stage). For the current rule behaviour
+> use `detections/README.md` and `detections/queries/*.eql`; for current results use
+> `reports/reference-run-20261003-03.md`.
 
 This document connects the behaviors in the original scenario code to the detection engineering implemented in the repository. The [rule export](../detections/exports/wmi-rules.ndjson) defines query behavior; the [retained screenshots](case-study.md#selected-evidence) show the recorded results.
 

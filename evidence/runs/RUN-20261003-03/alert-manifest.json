@@ -1,0 +1,349 @@
+{
+ "run_id": "RUN-20261003-03",
+ "window": {
+  "gte": "2026-10-03T11:36:00Z",
+  "lte": "2026-10-03T11:39:30Z"
+ },
+ "note": "stored alerts exported from the alert index; counts are upper bounds (schedule/lookback re-matching)",
+ "rules": [
+  {
+   "id": "R1",
+   "name": "[R1] ms-settings Open Command Registry Hijack",
+   "rule_id": "6119c8f8-4831-58d5-8152-99e225d8d700",
+   "stored_alerts": 2,
+   "alerts": [
+    {
+     "_id": "ac8e33ae95889b21ff73d0a8b030347cdc94a928ae73ee7964194a3581658cd6",
+     "@timestamp": "2026-10-03T11:37:17.777Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "f3f30cac97979c2ea877bf2f3a93a6b0925602b1ea37d6936e855d038db9e1ec",
+     "@timestamp": "2026-10-03T11:37:17.781Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "C1",
+   "name": "[C1] Fodhelper Child Interpreter",
+   "rule_id": "b67e8eb3-717d-5530-8fa4-7c100cd50c01",
+   "stored_alerts": 1,
+   "alerts": [
+    {
+     "_id": "fdc474d1e3a37041e310cc4d7fce1a9bc3f9b8f5833e4055646e10d397d1bb81",
+     "@timestamp": "2026-10-03T11:37:17.774Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "S1",
+   "name": "[S1] Script Host With Fodhelper or Cmd Parent",
+   "rule_id": "dcc415c4-1b78-576f-8eca-c0bb31cde193",
+   "stored_alerts": 1,
+   "alerts": [
+    {
+     "_id": "00ccc0615af7d643e52efcaf92a079355d11d1c55cfa0546dbb79a838c06511b",
+     "@timestamp": "2026-10-03T11:37:17.731Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "S2",
+   "name": "[S2] PowerShell Hidden and Bypass or Encoded Command Patterns",
+   "rule_id": "53e2150f-dfb9-503a-8b7b-dfb9d778d383",
+   "stored_alerts": 2,
+   "alerts": [
+    {
+     "_id": "81151e4c4e8d29eabc5cdf09f953c34180fdc54e6dd574351bbf4b4a9d539679",
+     "@timestamp": "2026-10-03T11:37:17.745Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "86987a694cc7fd2fd3785e67ff1d0aa2eccd66e4bc0321793b9abfc10f3ee08d",
+     "@timestamp": "2026-10-03T11:37:17.752Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "C2",
+   "name": "[C2] WMI Subscription Registration Sequence",
+   "rule_id": "470ec2b0-5352-5caa-814a-c0971d280dbc",
+   "stored_alerts": 4,
+   "alerts": [
+    {
+     "_id": "164243e5e79e0839a5691c024e69df611aec6c80554f485c4fd408fdc134a2a4",
+     "@timestamp": "2026-10-03T11:37:17.809Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "b0607dd62d6f780f67865113e2eac65748ccb0a5b3976a127e22ef776cbee449",
+     "@timestamp": "2026-10-03T11:37:17.811Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "2aff4a5783c6a55250151d30b169820ed4cc9886968e1832333542a1e87f5056",
+     "@timestamp": "2026-10-03T11:37:17.812Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "334e1f08167243811917052e45c4913c661e62db5dd5139aa1b5da0646e84b6f",
+     "@timestamp": "2026-10-03T11:37:17.816Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "R2",
+   "name": "[R2] WMI Subscription Registration Followed by WMI-Hosted Interpreter",
+   "rule_id": "fa934637-47d1-55c1-87a5-7650f68f4220",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "_id": "5239e43380f4afdad9917d1f5093988a683fa66e2941294fe89196c0c6533da1",
+     "@timestamp": "2026-10-03T11:37:22.310Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "a3f73c672b4cec0633b658b0f593847d8bd28fb05d3ec41b7bd4fb837b7effbb",
+     "@timestamp": "2026-10-03T11:37:22.312Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "a5c918d54b96d148ff2401f716ab0b97ac06d31b8ed5346f89490ac287d5233d",
+     "@timestamp": "2026-10-03T11:37:22.314Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "S3",
+   "name": "[S3] SYSTEM Shell or Tool With WMI Host Parent",
+   "rule_id": "b592d6cd-c032-585c-8434-408a585e50bd",
+   "stored_alerts": 1,
+   "alerts": [
+    {
+     "_id": "31eb8763d73a505d4a3965763b0d0f2dd3f9bef832a9d1508b17bee95031377a",
+     "@timestamp": "2026-10-03T11:37:17.767Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "C3",
+   "name": "[C3] WMI-Hosted Interpreter Followed by Discovery Process",
+   "rule_id": "c2e48604-1ad0-58a1-8f29-ecad6ef2225d",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "_id": "71cf2533e633887ec2370381b21ad9c15384aadd3ebf1efc5b8d97ad3d534841",
+     "@timestamp": "2026-10-03T11:37:17.789Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "42e776125d509354446cdff814d4a613e12c224e468683e13e17e50dbf520d41",
+     "@timestamp": "2026-10-03T11:37:17.791Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "a206b634bb86f731f9702876fb42c4d429cacd8c74c97b2edb5ae9efc80d72df",
+     "@timestamp": "2026-10-03T11:37:17.793Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "C4",
+   "name": "[C4] Staging and Archive Creation by a Single Process",
+   "rule_id": "77d03f39-bb58-57ec-843c-8cbccdfee9e1",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "_id": "992134642673bb8f6027d9ada980ded56b91652e9ec41127c8ebcfa6ab4df19f",
+     "@timestamp": "2026-10-03T11:37:17.802Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "3740d2f6803c4e77a31f7f2c3affe67d3d5fed702bda09ff727c7db5f3d2a2ce",
+     "@timestamp": "2026-10-03T11:37:17.804Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "e0c322dbe6e7e0b5361c4f609960632d5171477fb9c4938ba605a606ca21898b",
+     "@timestamp": "2026-10-03T11:37:17.806Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "S4",
+   "name": "[S4] Script-Spawned Curl with Upload Arguments",
+   "rule_id": "165d3a50-e810-54d3-8475-0abea929586a",
+   "stored_alerts": 2,
+   "alerts": [
+    {
+     "_id": "2733b5bb96c68b247be7832b0adcf6a21237e1c3778759199d2040ccf91710ec",
+     "@timestamp": "2026-10-03T11:37:19.295Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "25b279a5c998e47b2db3c7092b3b3467be9d8a39d546e2a96b462179ee6682fb",
+     "@timestamp": "2026-10-03T11:37:19.298Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  },
+  {
+   "id": "C5",
+   "name": "[C5] Archive Creation Followed by Archive Deletion",
+   "rule_id": "a0e17ccd-0f07-573e-8a21-f6fb9198d5e5",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "_id": "ee535283e1640486ae0bcb1120c6341b4908d3a46e46e1cd083d02d08ebb76a7",
+     "@timestamp": "2026-10-03T11:37:17.795Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "336e78e2985be8f88fffc8cb3a596c6c3603f96f390b652cc7282d02f8938469",
+     "@timestamp": "2026-10-03T11:37:17.797Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    },
+    {
+     "_id": "4f196c99f4afa89e4fbe50bfb87850dd0420eaa58c1624b107ba418a620be832",
+     "@timestamp": "2026-10-03T11:37:17.800Z",
+     "original_time": null,
+     "original_event_code": null,
+     "original_event_action": null,
+     "building_block_type": null,
+     "depth": null,
+     "ancestor_ids": []
+    }
+   ]
+  }
+ ],
+ "total_stored_alerts": 25
+}

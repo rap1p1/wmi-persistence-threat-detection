@@ -1,0 +1,6 @@
+{
+  "sysmon_version": "15.21 (observed in guest: C:\\Windows\\Sysmon.exe VersionInfo)",
+  "integration": "logs-windows.sysmon_operational (data stream observed in ES docs)",
+  "rules_live_in_kibana": "11 rules imported 2026-10-03 (export sha recorded below); old S4 rule deleted; ids verified against the export",
+  "elastic_agent_version": "9.5.3 (observed in guest: C:\\Program Files\\Elastic\\Agent)"
+}

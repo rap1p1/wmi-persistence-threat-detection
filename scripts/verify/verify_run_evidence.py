@@ -180,6 +180,7 @@ def es_verify(ledger, failures, tolerance_s=5.0):
     import os
     import ssl
     import urllib.error
+    import urllib.parse
     import urllib.request
 
     if not _es_available():
@@ -198,7 +199,7 @@ def es_verify(ledger, failures, tolerance_s=5.0):
                 continue
             es_id, recorded = ref["es_id"], ref.get("ts") or ""
             req = urllib.request.Request(
-                f"{es}/{SYS_INDEX}/_doc/{es_id}",
+                f"{es}/{SYS_INDEX}/_doc/{urllib.parse.quote(es_id, safe='')}",
                 headers={"Authorization": auth})
             try:
                 with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:

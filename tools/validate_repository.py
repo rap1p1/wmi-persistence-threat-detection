@@ -60,6 +60,15 @@ def validate():
             i = r.get("rule_id") or ""
             if not UUIDV5_RE.match(i):
                 errors.append(f"rule {r.get('name')}: id not the deterministic v5 shape")
+            required_keys = {"rule_id", "name", "immutable", "rule_source", "enabled",
+                             "interval", "from", "to", "description", "tags", "author",
+                             "license", "threat", "related_integrations", "required_fields",
+                             "setup", "note", "false_positives", "references", "risk_score",
+                             "severity", "index", "query", "filters", "alert_suppression",
+                             "type", "language", "actions"}
+            missing_keys = required_keys - set(r)
+            if missing_keys:
+                errors.append(f"rule {r.get('name')}: missing export fields {sorted(missing_keys)}")
             if r.get("actions") not in (None, []):
                 errors.append(f"rule {r.get('name')}: contains notification actions")
             if "meta" in r:

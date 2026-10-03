@@ -1,19 +1,19 @@
-﻿# Scenario analysis
+# Scenario analysis
 
-This is a static description of existing artifacts and an evidence map, not an execution guide. “Present in code” means the behavior is implemented or attempted; it does not establish successful execution.
+This is a static description of existing artifacts and an evidence map, not an execution guide. “Present in code” means the behavior is implemented or attempted; it does not establish successful execution. The 2026-10-03 restructure moved the three scenario files into `payloads/` (own source map) and routed exfiltration to an internal sink; the analysis below reads against the refactored layout.
 
 ## Source organization
 
 | Artifact | Responsibility | Review boundary |
 | --- | --- | --- |
 | `phishing/landing_page.html` | Delivery-themed page | The page alone does not prove delivery, download, or user execution |
-| `scripts/setup.bat` | Launcher and privilege-related setup | References an optional `setup.hta` that is not in the repository |
-| `scripts/payload.ps1`, outer script | Writes a separate consumer script and manages a named WMI subscription | Installation and subsequent activation are different events |
-| `scripts/payload.ps1`, embedded script | Discovery, collection, staging, archiving, transmission, and cleanup | Embedded code is not executed merely because the outer file contains it |
+| `payloads/setup.bat` | Launcher and privilege-related setup (S1/S2) | References an optional `setup.hta` that is not in the repository |
+| `payloads/install.ps1` | Writes the consumer script to `C:\Windows\Temp\svhw.ps1` and manages the named WMI subscription (S3) | Installation and subsequent activation are different events |
+| `payloads/consumer.ps1` | Discovery, collection, staging, archiving, transmission to the sink, and cleanup (S4–S7) | Embedded code is not executed merely because the installer contains it |
 
 The delivery page displays a different archive label from its download target; the referenced archive is absent. The main button opens a modal, which alone does not establish a download. These are provenance gaps, not a demonstrated delivery-to-execution chain.
 
-The scripts remain at their original paths with unchanged bytes. The distinction between launcher, installer, and embedded consumer clarifies which process and event should be attributed to each responsibility. See the [source map](../payloads/README.md).
+The distinction between launcher, installer, and embedded consumer clarifies which process and event should be attributed to each responsibility. The original combined `scripts/payload.ps1` (embedded consumer + Telegram) was superseded by this split layout and remains only in git history. See the [source map](../payloads/README.md).
 
 ## Execution and privilege context
 

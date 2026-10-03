@@ -1,4 +1,4 @@
-﻿# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
+# gen_rules_ndjson.ps1 - deterministic Elastic EQL rule export for WMI-LAB-1
 #
 # Loads every query from detections/queries/*.eql plus the per-rule metadata below
 # and writes detections/exports/wmi-rules.ndjson.
@@ -45,34 +45,39 @@ function Get-QueryFields([string]$query) {
 }
 
 function New-MitreThreat($tactic, $techniques) {
-    # $techniques: array of @{ id; name; sub = @(@{id; name}) | $null }
-    $techList = @()
+    # $techniques: array of @{ id; name; sub = "T1546.003|Name;T1546.004|Other" | '' }
+    # ArrayLists are used instead of @() literals: the array-subexpression operator
+    # flattens nested arrays and enumerates hashtables, corrupting the JSON shape.
+    $techList = New-Object System.Collections.ArrayList
     foreach ($t in $techniques) {
-        if ($null -ne $t.sub) {
-            $subList = @()
-            foreach ($s in $t.sub) {
-                $subList += @{ id = $s[0]; name = $s[1];
-                               reference = "https://attack.mitre.org/techniques/$($s[0])/" }
+        if ($null -ne $t.sub -and $t.sub -ne '') {
+            $subList = New-Object System.Collections.ArrayList
+            foreach ($part in ($t.sub -split ';')) {
+                $bits = $part -split '\|', 2
+                [void]$subList.Add(@{ id = $bits[0].Trim(); name = $bits[1].Trim();
+                                      reference = "https://attack.mitre.org/techniques/$($bits[0].Trim())/" })
             }
-            $techList += @{
+            [void]$techList.Add(@{
                 id = $t.id; name = $t.name
                 reference = "https://attack.mitre.org/techniques/$($t.id)/"
-                subtechnique = @($subList)
-            }
+                subtechnique = $subList
+            })
         }
         else {
-            $techList += @{
+            [void]$techList.Add(@{
                 id = $t.id; name = $t.name
                 reference = "https://attack.mitre.org/techniques/$($t.id)/"
-            }
+            })
         }
     }
-    return @(@{
+    $outer = New-Object System.Collections.ArrayList
+    [void]$outer.Add(@{
         framework = 'MITRE ATT&CK'
         tactic = @{ id = $tactic[0]; name = $tactic[1];
                     reference = "https://attack.mitre.org/tactics/$($tactic[0])/" }
-        technique = @($techList)
+        technique = $techList
     })
+    return $outer
 }
 
 function ConvertTo-CompactJson($obj) {
@@ -93,7 +98,7 @@ $rules = @(
         tactic=@('TA0004','Privilege Escalation')
         techniques=@(
             @{ id='T1548'; name='Abuse Elevation Control Mechanism'
-               sub=@(@('T1548.002','Bypass User Account Control')) })
+               sub='T1548.002|Bypass User Account Control' })
         interval='1m'; from='now-2m'
         event_ids=@('13')
         supp=@{ group=@('host.name'); dur=60 }
@@ -110,9 +115,9 @@ $rules = @(
         tactic=@('TA0004','Privilege Escalation')
         techniques=@(
             @{ id='T1548'; name='Abuse Elevation Control Mechanism'
-               sub=@(@('T1548.002','Bypass User Account Control')) },
+               sub='T1548.002|Bypass User Account Control' },
             @{ id='T1059'; name='Command and Scripting Interpreter'
-               sub=@(@('T1059.005','Visual Basic'), @('T1059.001','PowerShell')) })
+               sub='T1059.005|Visual Basic;T1059.001|PowerShell' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=30 }
@@ -129,7 +134,7 @@ $rules = @(
         tactic=@('TA0002','Execution')
         techniques=@(
             @{ id='T1059'; name='Command and Scripting Interpreter'
-               sub=@(@('T1059.005','Visual Basic'), @('T1059.001','PowerShell')) })
+               sub='T1059.005|Visual Basic;T1059.001|PowerShell' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=30 }
@@ -146,7 +151,7 @@ $rules = @(
         tactic=@('TA0002','Execution')
         techniques=@(
             @{ id='T1059'; name='Command and Scripting Interpreter'
-               sub=@(@('T1059.005','Visual Basic'), @('T1059.001','PowerShell')) })
+               sub='T1059.005|Visual Basic;T1059.001|PowerShell' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name','user.name'); dur=60 }
@@ -163,7 +168,7 @@ $rules = @(
         tactic=@('TA0003','Persistence')
         techniques=@(
             @{ id='T1546'; name='Event Triggered Execution'
-               sub=@(@('T1546.003','Windows Management Instrumentation Event Subscription')) })
+               sub='T1546.003|Windows Management Instrumentation Event Subscription' })
         interval='1m'; from='now-2m'
         event_ids=@('19','20','21')
         supp=@{ group=@('host.name','winlog.computer_name'); dur=30 }
@@ -180,7 +185,7 @@ $rules = @(
         tactic=@('TA0003','Persistence')
         techniques=@(
             @{ id='T1546'; name='Event Triggered Execution'
-               sub=@(@('T1546.003','Windows Management Instrumentation Event Subscription')) })
+               sub='T1546.003|Windows Management Instrumentation Event Subscription' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=60 }
@@ -197,7 +202,7 @@ $rules = @(
         tactic=@('TA0003','Persistence')
         techniques=@(
             @{ id='T1546'; name='Event Triggered Execution'
-               sub=@(@('T1546.003','Windows Management Instrumentation Event Subscription')) })
+               sub='T1546.003|Windows Management Instrumentation Event Subscription' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=60 }
@@ -214,7 +219,7 @@ $rules = @(
         tactic=@('TA0003','Persistence')
         techniques=@(
             @{ id='T1546'; name='Event Triggered Execution'
-               sub=@(@('T1546.003','Windows Management Instrumentation Event Subscription')) })
+               sub='T1546.003|Windows Management Instrumentation Event Subscription' })
         interval='1m'; from='now-2m'
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=60 }
@@ -232,7 +237,7 @@ $rules = @(
         techniques=@(
             @{ id='T1005'; name='Data from Local System' },
             @{ id='T1560'; name='Archive Collected Data'
-               sub=@(@('T1560.001','Archive via Utility')) },
+               sub='T1560.001|Archive via Utility' },
             @{ id='T1041'; name='Exfiltration Over C2 Channel' })
         interval='1m'; from='now-3m'
         event_ids=@('11','3')
@@ -266,7 +271,7 @@ $rules = @(
         tactic=@('TA0005','Defense Evasion')
         techniques=@(
             @{ id='T1070'; name='Indicator Removal'
-               sub=@(@('T1070.004','File Deletion')) },
+               sub='T1070.004|File Deletion' },
             @{ id='T1041'; name='Exfiltration Over C2 Channel' })
         interval='1m'; from='now-2m'
         event_ids=@('3','23')
@@ -324,7 +329,9 @@ foreach ($r in $rules) {
         missing_fields_strategy = 'suppress'
     }
 
-    $threat = New-MitreThreat $r.tactic @($r.techniques)
+    # New-MitreThreat emits one object through the pipeline, which PowerShell
+    # unrolls to a scalar; @(...) re-wraps so the export keeps an array.
+    $threat = @(New-MitreThreat $r.tactic @($r.techniques))
 
     $obj = [ordered]@{
         rule_id = New-RuleId $r.name

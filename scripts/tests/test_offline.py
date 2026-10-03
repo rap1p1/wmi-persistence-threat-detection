@@ -88,6 +88,28 @@ class RuleExportTests(unittest.TestCase):
             loaded.add(short)
         self.assertEqual(shipped, loaded)
 
+    def test_threat_payloads_structural_shape(self):
+        # regression: PowerShell array-subexpression flattening used to corrupt the
+        # MITRE threat JSON (nested subtechniques collapsing to char slices, threat
+        # array unrolling to a bare object). The export must keep: threat = [ {...} ],
+        # technique = [ {...} ], subtechnique = [ {...} ].
+        for r in self.rules:
+            t = r.get("threat")
+            self.assertIsInstance(t, list, r["name"])
+            self.assertTrue(t and isinstance(t[0], dict), r["name"])
+            entry = t[0]
+            self.assertEqual(entry.get("framework"), "MITRE ATT&CK", r["name"])
+            self.assertTrue(str(entry.get("tactic", {}).get("id", "")).startswith("TA"),
+                            r["name"])
+            self.assertIsInstance(entry.get("technique"), list, r["name"])
+            for tech in entry["technique"]:
+                self.assertIsInstance(tech, dict, r["name"])
+                self.assertTrue(str(tech.get("id", "")).startswith("T"), r["name"])
+                for sub in tech.get("subtechnique", []) or []:
+                    self.assertIsInstance(sub, dict, r["name"])
+                    self.assertEqual(sub["id"].count("."), 1, r["name"])
+                    self.assertGreater(len(sub.get("name", "")), 3, r["name"])
+
     def test_no_actions_no_environment_metadata(self):
         for r in self.rules:
             self.assertEqual(r.get("actions"), [], r["name"])

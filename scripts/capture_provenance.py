@@ -42,6 +42,21 @@ def git(*args):
         return "not captured"
 
 
+def git_diff_sha256():
+    """Hash of the uncommitted diff at capture time (working tree vs HEAD). When the
+    tree is dirty this pins the delta, so the recorded commit plus this hash identify
+    the actual source state that ran; without it, the commit alone could not
+    reproduce the run's files."""
+    try:
+        r = subprocess.run(["git", "diff", "HEAD"], cwd=ROOT, capture_output=True,
+                           text=True, timeout=20)
+        if r.returncode != 0:
+            return "not captured (git diff failed)"
+        return hashlib.sha256(r.stdout.encode("utf-8", "replace")).hexdigest().upper()
+    except Exception:
+        return "not captured"
+
+
 def es_version():
     url = os.environ.get("ES_URL")
     pw = os.environ.get("ES_PASS")
@@ -72,6 +87,8 @@ prov = {
     "repo_commit": git("rev-parse", "HEAD"),
     "repo_commit_subject": git("log", "-1", "--pretty=%s"),
     "working_tree_dirty": bool(git("status", "--porcelain")),
+    "working_tree_diff_sha256": (git_diff_sha256() if git("status", "--porcelain")
+                                 else "clean (no diff)"),
     "sysmon_config_sha256": sha256_file(ROOT / "config" / "sysmon-config.xml"),
     "rule_export_sha256": sha256_file(ROOT / "detections" / "exports" / "wmi-rules.ndjson"),
     "rules_live_in_kibana": extra.get("rules_live_in_kibana", "not captured"),
@@ -82,7 +99,8 @@ prov = {
     "sink": {
         "receipt_file": receipt_path.name if receipt_path else "not captured",
         "receipt_sha256": sha256_file(receipt_path) if receipt_path else "not captured",
-        "server": "scripts/sink_server.py (internal HTTP sink)",
+        "server": "scripts/sink_server.py (lab-interface bound, shared-token auth; "
+                  "finalised receipts cannot be overwritten)",
     },
     "run_window_utc": ledger.get("run_window_utc", "not captured"),
     "run_started_utc": ledger.get("run_started_utc", "not captured"),

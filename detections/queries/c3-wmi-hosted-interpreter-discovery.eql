@@ -6,8 +6,8 @@
  * discovery event is joined to the interpreter by ancestry:
  *   step1 (interpreter) by process.entity_id
  *   step2 (discovery)   by process.parent.entity_id
- * The earlier host/time-only join was replaced by this entity link; the acceptance
- * verifier re-checks the same ancestry from the ledger.
+ * Both events are additionally bound to the same host.name - a cross-host false join
+ * is impossible. The acceptance verifier re-checks the same ancestry from the ledger.
  */
 sequence with maxspan=30s
 
@@ -18,7 +18,7 @@ sequence with maxspan=30s
     and process.parent.name : ("WmiPrvSE.exe", "scrcons.exe")
     and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
     and process.name : ("powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe", "rundll32.exe", "regsvr32.exe", "mshta.exe")
-  ] by process.entity_id
+  ] by process.entity_id, host.name
 
   /* Listed SYSTEM discovery process whose PARENT is that interpreter */
   [process where
@@ -30,4 +30,4 @@ sequence with maxspan=30s
       "nltest.exe", "nbtstat.exe", "hostname.exe"
     )
     and user.name : ("SYSTEM", "NT AUTHORITY\\SYSTEM")
-  ] by process.parent.entity_id
+  ] by process.parent.entity_id, host.name

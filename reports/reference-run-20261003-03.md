@@ -100,10 +100,19 @@ or accuracy measurement. A longer baseline is required before any performance cl
 
 ## 5. Limitations (honest)
 
-- **Operator-launched High-integrity session**: the UAC bypass mechanism is replayed;
-  a Medium→High transition is not demonstrated (S4's SYSTEM consumer is the
-  elevation-path evidence).
-- **No reboot-survival test**: the subscription is left installed by design.
+- **Elevation is NOT demonstrated (mechanism observed, elevation unverified)**: the
+  run started from a High-integrity operator session via vmrun; no pre-chain
+  Medium-integrity token measurement exists, and the verifier records `GAP S2` for
+  this. The consumer running as SYSTEM proves the consumer's execution context only -
+  it does NOT prove the installation process was elevated or that a UAC consent
+  granted a token (Microsoft distinguishes a child process's token from a UAC grant;
+  a standard user needs Administrator credentials for an admin task). A Medium-
+  integrity run with pre/post integrity measurements
+  (`scripts/elevation_preflight.ps1`) is required before any Medium→High claim.
+- **No reboot-survival test executed yet**: the subscription is left installed by
+  design; `scripts/reboot_survival_check.ps1` records the procedure, but this run did
+  not reboot the guest, so persistence-across-reboot remains UNVERIFIED (to run:
+  before/after object checks, one pass with AV on and one with AV off).
 - **In-process discovery** (Get-CimInstance/Get-NetIPAddress/Get-LocalUser) is not
   independently event-evidenced; only `ARP.EXE` and the manifest/staging writes are.
 - **Sysmon E3 for the short-lived curl carries `Image: <unknown process>`**

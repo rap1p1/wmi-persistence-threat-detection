@@ -1,5 +1,65 @@
 ﻿# Change record
 
+## 2026-10-03 - Second remediation round: elevation honesty, sink hardening, ES field rules, host-bound joins
+
+- **Elevation honesty (FIXED):** no run claims a UAC elevation. The reference runs start
+  from a High-integrity operator session and capture no pre-chain Medium token, so the
+  verifier now records `GAP S2: elevation unverified - mechanism observed` for every
+  run; `scripts/elevation_preflight.ps1` implements the pre/post integrity measurement
+  a real Medium-integrity run must capture, and the verifier FAILs when a run with
+  measurements shows no Medium->High transition. attack-chain-plan / reports / README
+  no longer infer elevation from the SYSTEM consumer (S4 SYSTEM proves the consumer
+  context only; Microsoft distinguishes child-process tokens from a UAC grant).
+- **Reboot survival (NOT YET EXECUTED - procedure added):** `scripts/reboot_survival_check.ps1`
+  records before/after subscription-object checks + trigger verification. No guest
+  reboot was performed in this round, so persistence-across-reboot remains UNVERIFIED
+  (runbook documents the AV-on/AV-off requirement).
+- **Sink hardening (FIXED):** `sink_server.py` binds the LAB interface by default
+  (0.0.0.0 refused), authenticates uploads with a shared lab token (`X-LAB-Token` /
+  `SINK_TOKEN`), and supports `POST /receipt/<run_id>/finalise` so a receipt cannot be
+  overwritten after the run. `prepare_run.ps1` refuses sinks outside 192.168.x.x and
+  injects the token into the staged consumer. Attribution claim is now precisely
+  "the sink received these bytes from a lab-token holder" - not cryptographic
+  attribution to the victim. consumer.ps1 checks EACH upload exit code and fetches the
+  receipt back to verify run/host/size/sha256 before reporting success (exit 2 on
+  failure).
+- **ES field rules (FIXED):** es_verify now enforces REQUIRED fields per event type
+  (event.code, host, channel, process.name/entity_id/user for E1; entity/dst/port for
+  E3; file.path for E11/E23; WMI references for 19/20/21) - a field missing in ES is
+  a FAIL; join fields missing in ES are a labelled GAP; ledger-vs-ES comparison covers
+  parent.entity_id, user, registry.path, WMI references and destination port, with
+  symmetric quote/escape normalisation. Negative tests cover receipt run/host/size/
+  hash, cleanup FAIL, entity/path mismatch, path traversal and the elevation gate.
+- **Host-bound joins (FIXED):** C3 and C5 now key their per-clause `by` with
+  `host.name` alongside the ancestry/path key, so a same-path/same-entity join cannot
+  cross hosts (verified on ES 9.5.3: both still match 1 in each run window, control 0).
+  C2/R2 descriptions and notes now state explicitly they are host/time candidates,
+  not proven registration-to-activation links (Sysmon 19/20/21 carry no object
+  linkage).
+- **Building-block consumption (FIXED):** S4 (upload-intent/exfil-analogue signal) is
+  no longer exported as a building block - its alerts appear under default Kibana
+  filters; the other 10 rules remain building blocks and the catalogue documents the
+  consumption model.
+- **Hash provenance (FIXED):** the staged-consumer hash is documented everywhere as a
+  GUEST PROBE measurement (stored as `probe-svhw-hash.json` with source/time/host/path),
+  never as an EID 11 hash field; install.ps1/prepare_run.ps1/runbook/attack-chain-plan/
+  correlation-architecture no longer claim an EID 11 link ("DIRECT EVENT LINK"
+  replaced by "MEASUREMENT LINK").
+- **Payload hygiene (FIXED):** setup.bat saves and RESTORES the pre-existing
+  ms-settings value (no destruction), drops the dead setup.hta branch; install.ps1
+  removal is restricted to the lab namespace (never touches unrelated subscription
+  objects).
+- **Provenance dirty-tree (FIXED forward):** capture_provenance.py now records
+  `working_tree_diff_sha256` (hash of the uncommitted diff) when the tree is dirty, so
+  the commit plus the diff hash pins the actual source state that ran. The three
+  historical runs were captured while dirty and that historical delta is not
+  reconstructable - labelled "not captured" in reports; future runs must run from a
+  clean commit or rely on the diff hash.
+- **Do not rewrite history:** the three run ledgers keep their recorded events; the
+  verifier's new S2 elevation GAP and the probe-file fallback apply without changing
+  event refs.
+
+
 ## 2026-10-03 - Remediation round: strict acceptance, run scoping, provenance
 
 Everything below is a response to an external review of `b874f26`; each item is FIXED,

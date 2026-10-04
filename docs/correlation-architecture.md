@@ -94,33 +94,40 @@ the sink receipt.
   the hash recorded in the receipt.
 - Cross-host hash is the join key between producer (guest) and consumer (sink).
 
-### Module integrity (S3) — byte-identical staged consumer
+### Module integrity (S3) — staged consumer vs guest measurement
 
 - `scripts/prepare_run.ps1` writes the run-scoped staged copy under
-  `evidence/runs/<run_id>/payload/` (indexed as `ART-01-02`) and prints its raw
-  sha256. `install.ps1` materializes `svhw.ps1` with byte-fidelity (no BOM, no
-  line-ending conversion), so the guest file is byte-identical to the staged copy.
-- Join (verifier): the RECORDED `svhw.ps1` hash equals the raw sha256 of the staged
-  consumer — a DIRECT EVENT LINK (hash equality across hosts, §1.4 Module integrity).
-  On this stack the EID 11 event does not populate Hashes, so the guest-side value is
-  captured by probe and its provenance is carried in the ledger ref
-  (`file_hash_provenance`) — it is labelled as such, never as an event field.
+  `evidence/runs/<run_id>/payload/` (indexed as `ART-01-02`) and prints its sha256.
+  `install.ps1` materializes `svhw.ps1` with byte-fidelity (no BOM, no line-ending
+  conversion), so the guest file is byte-identical to the staged copy.
+- **The hash basis is a GUEST PROBE measurement, not an event field**: the EID 11
+  write event on this stack does NOT populate Hashes, so the operator runs
+  `Get-FileHash` on `C:\Windows\Temp\svhw.ps1` after install and stores it as a
+  separate measurement (`probe-svhw-hash.json`: source, captured time, host, path,
+  sha256). Historical ledgers carry the same measurement on the EID 11 ref with the
+  provenance labelled (`guest probe; EID11 event carries no Hashes`) — the probe is
+  NEVER presented as an EID 11 hash field.
+- Join (verifier): the probe measurement equals the staged consumer hash (canonical
+  CRLF→LF — the repo copy is CRLF, the guest copy is LF). This is a
+  `MEASUREMENT LINK` (operator-measured value vs staged artifact), not a telemetry
+  event link; the tier table below keeps that distinction.
 - The received archive is evidenced by the sink receipt (name/size/sha256); the
   archive bytes are `*.zip`-gitignored and not indexed as an artifact (the receipt is
-  the server-side ground truth). Text artifacts are indexed canonically; the module
-  join uses the raw hash because Sysmon hashes raw bytes.
+  the server-side ground truth). Text artifacts are indexed canonically.
 
-> **EQL join scope (verified on the lab stack, ES 9.5.3):** `sequence by` accepts one
-> field list shared by every step — asymmetric joins (step1.process.entity_id ==
-> step2.process.parent.entity_id, E1↔E3 ownership, create/delete same file.path) are
-> NOT expressible in EQL. The queries stay host/time correlations and the assertions
-> are executed by the acceptance verifier (`join_checks`).
+> **EQL join scope (corrected, verified on ES 9.5.3):** EQL supports a PER-CLAUSE
+> `by` key. C3 joins interpreter `process.entity_id` → discovery
+> `process.parent.entity_id` (both keys carry `host.name`), and C5 joins zip create →
+> zip delete by `file.path` (also `host.name`), so asymmetric links ARE expressible
+> in the queries. The acceptance verifier re-checks ancestry/path/ownership from the
+> ledger because the queries cannot carry object references (WMI bindings, receipt).
 
 ## 3. Correlation tiers
 
 | Tier | Meaning | Valid example |
 |---|---|---|
 | `DIRECT EVENT LINK` | Same trustworthy technical key in telemetry | fodhelper E1 -> wscript E1 by `parent.entity_id` |
+| `MEASUREMENT LINK` | Operator-measured value compared with a staged artifact (not a telemetry event field) | guest probe hash of `svhw.ps1` == staged consumer (canonical hash) |
 | `SUPPORTED PHASE HANDOFF` | Artifact/state produced by stage A, consumed by B, with producer/consumer evidence + run id | `ART-06-01` manifest -> `ART-07-01` sink receipt (hash equality) |
 | `TEMPORAL/CONTEXTUAL ONLY` | Same time/host/context, causality not proven | registry EID 13 -> fodhelper E1; WMI subscription -> WmiPrvSE child |
 | `UNPROVEN` | Evidence missing or inconclusive | "persistence survived reboot" without a controlled reboot |

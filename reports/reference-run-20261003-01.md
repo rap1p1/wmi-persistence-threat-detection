@@ -103,8 +103,10 @@ report says so. (`scripts/verify/verify_run_evidence.py` join_checks.)
 - **Operator-launched, High-integrity session**: vmrun/Tools processes run in session 0
   with a High-integrity token (`Mandatory Label\High Mandatory Level`). The S2 UAC
   bypass therefore replayed its mechanism (registry → fodhelper → script host) rather
-  than demonstrating a privilege gain; "elevation succeeded" is only supported by S4's
-  SYSTEM consumer. Fidelity note documented in `docs/attack-chain-plan.md` limitations.
+  than demonstrating a privilege gain. **Elevation is UNVERIFIED**: no Medium-integrity
+  start and no pre/post token measurement; the S4 SYSTEM consumer proves only its own
+  context and is NOT elevation evidence (verifier records `GAP S2`; see
+  `scripts/elevation_preflight.ps1` for the Medium-integrity procedure).
 - **Rule evaluation**: direct EQL re-evaluation, not stored alerts (rules imported
   after this run; the next run will produce live alerts). Kibana import + execution
   status to be recorded in a follow-up run.

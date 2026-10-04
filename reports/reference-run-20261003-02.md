@@ -72,9 +72,11 @@ the window. None of the alert counts imply distinct incidents (building-block mo
 
 ## 5. Limitations (honest)
 
-- Operator-launched High-integrity session; the fodhelper UAC mechanism is replayed,
-  not a demonstrated Medium→High transition (S4's SYSTEM consumer is the only
-  elevation-path evidence).
+- Operator-launched High-integrity session; the fodhelper UAC mechanism is replayed.
+  **Elevation is UNVERIFIED (mechanism observed only)**: no Medium-integrity start, no
+  pre/post token measurement, and the SYSTEM consumer proves only its own context -
+  it is NOT elevation-path evidence (see "S2 elevation gate" in the verifier and
+  scripts/elevation_preflight.ps1).
 - **S4 E3 attribution gap**: the curl E3 in this window carried `Image: <unknown
   process>` (Sysmon local attribution failure — verified identical in the guest local
   log), so the verifier records `GAP S6` for E1↔E3 ownership; S4's upload-intent E1

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Build a run ledger from live Elasticsearch evidence (generic, by run id).
 
 RUN SCOPING (hard requirements):
@@ -243,14 +243,27 @@ if tb:
     truncated_any.append("baseline E3 cap reached")
 
 svh_refs = s3_svh
+run_dir = ROOT / "evidence" / "runs" / RUN
+if not run_dir.is_dir():
+    raise SystemExit(f"missing run dir {run_dir}; create it and place the artifacts first")
 if svh_refs and GUEST_HASH:
     svh_refs[0]["file_hash"] = GUEST_HASH.upper()
     svh_refs[0]["file_hash_provenance"] = ("guest probe; EID11 event carries no Hashes "
                                            "on this stack")
-
-run_dir = ROOT / "evidence" / "runs" / RUN
-if not run_dir.is_dir():
-    raise SystemExit(f"missing run dir {run_dir}; create it and place the artifacts first")
+    # the guest probe is recorded as a SEPARATE measurement (source, time, host, path,
+    # hash) - the verifier compares THIS file with the staged artifact, and nothing is
+    # attributed to an EID 11 hash field.
+    probe = {
+        "measurement": "svhw.ps1 hash probe",
+        "run_id": RUN,
+        "host": HOST,
+        "path": "C:\\Windows\\Temp\\svhw.ps1",
+        "sha256": GUEST_HASH.upper(),
+        "captured_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source": "guest probe (Get-FileHash) run via vmrun; EID11 event carries no Hashes",
+    }
+    (run_dir / "probe-svhw-hash.json").write_text(
+        json.dumps(probe, indent=2), encoding="utf-8")
 
 
 def stage(name, host, account, refs, notes, in_art=(), out_art=()):

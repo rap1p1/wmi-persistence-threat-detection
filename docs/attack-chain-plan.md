@@ -8,17 +8,18 @@
 > explicitly; they have a parent the agent chain never shows.
 
 Chain summary: a normal local user (member of local Administrators, filtered token)
-double-clicks `setup.bat`; fodhelper-driven UAC bypass elevates a hidden PowerShell
-that writes a consumer script and installs a WMI event subscription; opening
-`notepad.exe` fires the filter, the consumer runs as SYSTEM and performs discovery,
-collection, staging, archiving, exfil to an internal sink, and cleanup.
+double-clicks `setup.bat`; the fodhelper-driven UAC bypass mechanism is launched
+(**the mechanism is observed; elevation itself is unverified** — see S2 boundary);
+a hidden PowerShell writes a consumer script and installs a WMI event subscription;
+opening `notepad.exe` fires the filter, the consumer runs as SYSTEM and performs
+discovery, collection, staging, archiving, exfil to an internal sink, and cleanup.
 
 | Stage | Behavior | Technique | Rules that observe it |
 |---|---|---|---|
 | S1 | Entry: user double-clicks `setup.bat` | T1059.003 (context) | none dedicated (operator action declared) |
-| S2 | UAC bypass: ms-settings registry hijack → fodhelper → script host → elevated PowerShell | T1548.002, T1059.005/.001 | R1 (registry), C1/S1 (fodhelper child), S2 (PS flags) |
+| S2 | UAC bypass mechanism: ms-settings registry hijack → fodhelper → script host → PowerShell | T1548.002, T1059.005/.001 | R1 (registry), C1/S1 (fodhelper child), S2 (PS flags) — **mechanism observed, elevation unverified** |
 | S3 | Persistence install: write consumer, register WMI filter/consumer/binding | T1546.003 | C2 (19/20/21); the consumer PS also matches S2/S3/R2 (overlap documented) |
-| S4 | Activation: notepad.exe fires filter → consumer under WmiPrvSE as SYSTEM | T1546.003 | R2 (registration→interpreter), S3, C3 (discovery part) |
+| S4 | Activation: notepad.exe fires filter → consumer under WmiPrvSE as SYSTEM (proves the consumer's context only, not a UAC transition) | T1546.003 | R2 (registration→interpreter), S3, C3 (discovery part) |
 | S5 | Discovery + collection + staging + manifest | T1082/T1016/T1087.001, T1005/T1074.001 | C3 (discovery), staging creates feed C4 |
 | S6 | Archive + exfil to internal sink (curl) + status message (PS) | T1560.001, T1567 surrogate | C4 (archive create), S4 (script-spawned curl upload intent), receipt (transfer); E1↔E3 ownership is a ledger join (GAP when unassigned) |
 | S7 | Cleanup: delete staging + archive; history clearing | T1070.004 | C5 (archive create → delete; same-path verifier-checked) |
@@ -34,11 +35,15 @@ Traffic: the guest reaches the sink over the lab network on a dedicated port
 (default 9180, documented per run). No external service is contacted; Telegram and
 other external channels are **out of scope by design** (§F).
 
-Run-scoped staging: `scripts/prepare_run.ps1` substitutes the run id, sink base and
-host into a copy of the payloads under `evidence/runs/<run_id>/payload/` and prints
-the staged consumer sha256 (indexed as ART-01-02). The guest runs that staged copy;
-S3's EID 11 `Hash` of the materialized `svhw.ps1` is cross-checked against the
-staged hash (module-integrity link, §1.4).
+Run-scoped staging: `scripts/prepare_run.ps1` substitutes the run id, sink base, host
+and lab token into a copy of the payloads under `evidence/runs/<run_id>/payload/` and
+prints the staged consumer sha256 (indexed as ART-01-02). The guest runs that staged
+copy; module-integrity evidence is the **guest probe** — the operator runs
+`Get-FileHash C:\Windows\Temp\svhw.ps1` in the guest AFTER install and records it as a
+separate measurement (`probe-svhw-hash.json`: source, time, host, path, hash). The
+verifier compares that probe with the staged consumer hash (canonical CRLF→LF).
+The Sysmon EID 11 write event on this stack carries **no Hashes**, so nothing is ever
+attributed to an EID 11 hash field (§1.4).
 
 ## S1 — Entry
 
@@ -66,8 +71,16 @@ staged hash (module-integrity link, §1.4).
 - Evidence: EID 13 x2, E1 fodhelper, E1 wscript, E1 powershell — all with
   `@timestamp`; entity join fodhelper→wscript.
 - Boundary: the registry→fodhelper link is TEMPORAL/CONTEXTUAL (no shared identity
-  field); the elevated token is not read from any event predicate — elevation becomes
-  *observable* only when S4 shows the consumer under SYSTEM.
+  field). **Elevation is NOT demonstrated by this run**: the chain starts in a
+  High-integrity operator session (medium-process token of a local Administrator is
+  NOT captured pre-chain), and no event predicate reads an integrity level. A consumer
+  running as SYSTEM only proves the consumer's execution context - it does NOT prove
+  the installation process was elevated, and Microsoft distinguishes a child
+  process's token from a UAC consent grant (a standard user would need Administrator
+  credentials for an admin task). S2 is therefore recorded as
+  **"mechanism observed, elevation unverified"**; until a run starts from a real
+  Medium-integrity filtered token with pre/post integrity evidence, no
+  Medium→High claim is made anywhere.
 - Failure: if EID 13 for the key is absent because the key was created+deleted too
   fast, keep the run but mark S2 PARTIAL (missing registry evidence), do not fabricate.
 

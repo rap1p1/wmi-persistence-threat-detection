@@ -90,9 +90,18 @@ class RuleExportTests(unittest.TestCase):
         self.assertEqual(shipped, loaded)
 
     def test_building_block_mode_enabled(self):
-        for r in self.rules:
-            self.assertEqual(r.get("building_block_type"), "default", r["name"])
+        # 10 of 11 rules are building blocks (hidden from default Alerts view);
+        # S4 is the analyst-facing upload-intent signal and deliberately carries NO
+        # building_block_type so its alerts are visible under default Kibana filters.
+        blocks = [r for r in self.rules if r.get("building_block_type") == "default"]
+        non_blocks = [r for r in self.rules if not r.get("building_block_type")]
+        self.assertEqual(len(blocks), 10)
+        self.assertEqual([r["name"] for r in non_blocks],
+                         ["[S4] Script-Spawned Curl with Upload Arguments"])
+        for r in blocks:
             self.assertIn("Building block", r.get("setup", ""), r["name"])
+        for r in non_blocks:
+            self.assertIn("NOT a building block", r.get("setup", ""), r["name"])
 
     def test_threat_payloads_structural_shape(self):
         # regression: PowerShell array-subexpression flattening used to corrupt the
@@ -661,6 +670,23 @@ class NegativeAcceptanceTests(unittest.TestCase):
         self.assertTrue(any("do not match the recorded objects" in f for f in self._fail(m)))
 
 
+    def test_elevation_transition_absent_fails(self):
+        """Both measurements captured but no Medium->High rise must FAIL."""
+        def m(l, d):
+            for stage, label in (('before', 'Medium'), ('after', 'Medium')):
+                (d / f"elevation-{stage}.json").write_text(
+                    json.dumps({"current_session": {"integrity_label": label}}))
+        self.assertTrue(any("elevation transition not demonstrated" in f
+                            for f in self._fail(m)))
+
+    def test_elevation_measurements_pass(self):
+        def m(l, d):
+            (d / "elevation-before.json").write_text(
+                json.dumps({"current_session": {"integrity_label": "Medium"}}))
+            (d / "elevation-after.json").write_text(
+                json.dumps({"current_session": {"integrity_label": "High"}}))
+        self.assertEqual(self._fail(m), [])
+
 class EqlSourceExportDriftTests(unittest.TestCase):
     """A one-character drift between the .eql source and the exported query fails."""
 
@@ -679,6 +705,7 @@ class EqlSourceExportDriftTests(unittest.TestCase):
         drifted = text.replace("maxspan=2m", "maxspan=3m")
         self.assertNotEqual(validator.normalize_eql(drifted),
                             validator.normalize_eql(c5["query"]))
+
 
 
 if __name__ == "__main__":

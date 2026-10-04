@@ -16,8 +16,10 @@ $ConsumerName = "SystemDumpConsumer"
 $source = Join-Path $PSScriptRoot "consumer.ps1"
 if (-not (Test-Path $source)) { Write-Host "[S3] missing consumer.ps1 next to installer"; exit 1 }
 # byte-fidelity read/write (no BOM, no line-ending conversion) so the on-disk
-# svhw.ps1 is byte-identical to the staged consumer and the EID 11 hash of the write
-# event equals the staged artifact hash (module-integrity link).
+# svhw.ps1 is byte-identical to the staged consumer.
+# NOTE: the EID 11 event on this stack carries NO Hashes; module-integrity evidence
+# is the guest probe (Get-FileHash of svhw.ps1) taken by the operator and stored as a
+# separate measurement, compared with the staged artifact by the acceptance verifier.
 $body = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
 $body = $body.Replace("__RUN_ID__", $RunId).Replace("__SINK_BASE__", $SinkBase).Replace("__HOST__", $VictimHost)
 [System.IO.File]::WriteAllText($ConsumerPath, $body,
@@ -38,9 +40,10 @@ function Remove-SubscriptionObjects {
     $FilterNameX = $FilterName
     $ConsumerNameX = $ConsumerName
     for ($i = 0; $i -lt 3; $i++) {
-        # test-debris from config validation phases (kept names Dsh*) - purge them so
-        # the baseline is pristine; these are lab-internal markers, never produced by
-        # the chain itself.
+        # Removal is restricted to the lab namespace ONLY: the two objects this chain
+        # creates (NotepadFilter / SystemDumpConsumer) plus legacy Dsh debris from
+        # earlier config-validation phases. Any other subscription object is NEVER
+        # touched (a lab payload must not destroy unrelated system state).
         $bindings = @(Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding -ErrorAction SilentlyContinue |
             Where-Object { $_.Filter -match $FilterNameX -or $_.Consumer -match $ConsumerNameX -or $_.Filter -match 'Dsh' -or $_.Consumer -match 'Dsh' })
         foreach ($b in $bindings) { try { $b | Remove-WmiObject -ErrorAction Stop } catch {} }

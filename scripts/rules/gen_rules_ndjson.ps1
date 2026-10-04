@@ -190,8 +190,8 @@ $rules = @(
         event_ids=@('19','20','21','1')
         supp=@{ group=@('host.name'); dur=600 }
         required_extra=@('process.parent.name')
-        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (registration -> activation correlation). Activation of a pre-existing subscription is observed by S3; this rule pairs a registration with later WMI execution. See docs/correlation-architecture.md R2.'
-        fp=@('A registration followed later by any WMI-hosted script/interpreter (including legitimate automation) matches; host/time correlation only. No measured false-positive rate is implied.')
+        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (registration -> activation correlation). HOST/TIME CANDIDATE ONLY: the query pairs any registration with any later WMI-hosted interpreter on the same host within 10 minutes; it does NOT prove that the interpreter was triggered by THIS subscription (Sysmon EID 19/20/21 carry no subscription object linkage in this telemetry). Registration is not activation, and activation is not reboot survival. See docs/correlation-architecture.md R2.'
+        fp=@('A registration followed later by any WMI-hosted script/interpreter (including legitimate automation) matches; host/time correlation only, treated as a candidate, not a proven registration-to-activation link. No measured false-positive rate is implied.')
     }
     @{
         file='s3-system-shell-wmi-host-parent.eql'; id='S3'
@@ -213,7 +213,7 @@ $rules = @(
     @{
         file='c3-wmi-hosted-interpreter-discovery.eql'; id='C3'
         name='[C3] WMI-Hosted Interpreter Followed by Discovery Process'
-        desc='Ancestry-joined sequence: a WMI-hosted SYSTEM interpreter followed within 30 seconds by a listed SYSTEM discovery process whose PARENT entity is that interpreter (EQL per-clause by). The acceptance verifier re-checks the same ancestry from the ledger.'
+        desc='Ancestry-joined, same-host sequence: a WMI-hosted SYSTEM interpreter followed within 30 seconds by a listed SYSTEM discovery process whose PARENT entity is that interpreter (EQL per-clause by process.entity_id, host.name -> process.parent.entity_id, host.name). Cross-host false joins are impossible; the acceptance verifier re-checks the same ancestry from the ledger.'
         tags=@('Signal','WMI Execution','Discovery','T1546.003','T1082','T1016')
         severity='high'; risk=73
         tactic=@('TA0003','Persistence')
@@ -224,7 +224,7 @@ $rules = @(
         event_ids=@('1')
         supp=@{ group=@('host.name'); dur=60 }
         required_extra=@('process.parent.name','user.name')
-        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (activation half) + T1082/T1016. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): interpreter by process.entity_id, discovery by process.parent.entity_id - a real ancestry join, not host/time. See docs/correlation-architecture.md C3.'
+        notes='Detection basis: MITRE T1546.003 DET0086/AN0236 (activation half) + T1082/T1016. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): interpreter by process.entity_id AND host.name, discovery by process.parent.entity_id AND host.name - a same-host ancestry join, not a host/time guess. See docs/correlation-architecture.md C3.'
         fp=@('Unrelated same-host discovery within 30 s of WMI execution can correlate; ancestry is verifier-checked. No measured false-positive rate is implied.')
     }
     @{
@@ -266,7 +266,7 @@ $rules = @(
     @{
         file='c5-archive-created-then-deleted.eql'; id='C5'
         name='[C5] Archive Creation Followed by Archive Deletion'
-        desc='Path-joined sequence: an archive is created (EID 11, zip) then deleted (EID 23, zip) on the SAME file.path within 2 minutes (EQL per-clause by). No archive name is hard-coded; the acceptance verifier re-checks path equality; deletion does not imply transfer success.'
+        desc='Path-joined, same-host sequence: an archive is created (EID 11, zip) then deleted (EID 23, zip) on the SAME file.path on the SAME host within 2 minutes (EQL per-clause by file.path, host.name). No archive name is hard-coded; the acceptance verifier re-checks path equality; deletion does not imply transfer success.'
         tags=@('Signal','Defense Evasion','T1070.004')
         severity='high'; risk=73
         tactic=@('TA0005','Defense Evasion')
@@ -277,7 +277,7 @@ $rules = @(
         event_ids=@('11','23')
         supp=@{ group=@('host.name'); dur=60 }
         required_extra=@('file.extension')
-        notes='Detection basis: T1070.004 deletion telemetry chained to archive creation. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): both steps key on file.path, so the deletion is joined to the creation of the SAME archive path. The acceptance verifier re-checks the path equality from the ledger. See docs/correlation-architecture.md C5.'
+        notes='Detection basis: T1070.004 deletion telemetry chained to archive creation. Uses EQL PER-CLAUSE by (verified on ES 9.5.3): both steps key on file.path AND host.name, so the deletion is joined to the creation of the SAME archive path on the SAME host - a same-path cross-host false join is impossible. The acceptance verifier re-checks the path equality from the ledger. See docs/correlation-architecture.md C5.'
         fp=@('Zip-create then zip-delete within 2 minutes is uncommon in normal PC use; assess in the destination environment. No measured false-positive rate is implied.')
     }
 )
@@ -307,6 +307,11 @@ foreach ($r in $rules) {
     }
 
     $ids = ($r.event_ids -join ', ')
+    if ($r.id -eq 'S4') {
+        $blockline = 'This rule is NOT a building block: it represents the upload-intent / exfil-analogue signal analysts should see, so its alerts appear under the default Alerts view (no building-block filter required).'
+    } else {
+        $blockline = 'Building block (building_block_type=default): hidden from the default alert view, feeds correlation; no signal alone asserts an incident.'
+    }
     $setup = @(
         "## Data requirements - $($r.id)",
         '',
@@ -314,7 +319,7 @@ foreach ($r in $rules) {
         '- Channel: Microsoft-Windows-Sysmon/Operational.',
         '- Detection basis: ' + $r.notes,
         '',
-        'Building block (building_block_type=default): hidden from the default alert view, feeds correlation; no signal alone asserts an incident.',
+        $blockline,
         'Verify the installed integration: event.category, field types, casing, null handling and source-to-ECS mapping against actual events. required_fields is descriptive metadata, not a mapping check. The public export retains the original broad index patterns - scope them to verified data streams in the destination environment.',
         'Query interpretation and evidence boundaries: ' +
             'docs/telemetry-contract.md, docs/correlation-architecture.md, docs/attack-chain-plan.md.',
@@ -360,7 +365,6 @@ foreach ($r in $rules) {
         max_signals = 100
         exceptions_list = @()
         actions = @()
-        building_block_type = 'default'
         type = 'eql'
         language = 'eql'
         index = $broadIndex
@@ -368,6 +372,12 @@ foreach ($r in $rules) {
         filters = @()
         alert_suppression = $alertSupp
     }
+    # Building-block mode: every rule defaults to building_block_type=default
+    # (hidden from the default alert view, feeds correlation; no single signal asserts
+    # an incident). S4 is the one rule analysts must SEE (the upload-intent /
+    # exfil-analogue signal), so its building_block_type field is REMOVED from the
+    # export - its alerts surface under default Kibana filters.
+    if ($r.id -ne 'S4') { $obj.building_block_type = 'default' }
     $lines += (ConvertTo-CompactJson $obj)
 }
 

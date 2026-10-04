@@ -2,8 +2,9 @@
  * Detection basis: T1070.004 deletion telemetry chained to archive creation.
  * Telemetry: Sysmon EID 11 (zip create) + EID 23 (zip delete).
  * CORRELATION (verified on ES 9.5.3): EQL supports a PER-CLAUSE `by` key, so the
- * deletion is joined to the creation of the SAME archive path:
- *   step1 (create) by file.path, step2 (delete) by file.path
+ * deletion is joined to the creation of the SAME archive path on the SAME host:
+ *   step1 (create) by file.path, host.name; step2 (delete) by file.path, host.name.
+ * A same-path cross-host false join is therefore impossible.
  * No archive name is hard-coded and deletion does not imply transfer success; the
  * acceptance verifier re-checks the path equality from the ledger.
  */
@@ -14,11 +15,11 @@ sequence with maxspan=2m
     winlog.event_id : "11"
     and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
     and file.extension : "zip"
-  ] by file.path
+  ] by file.path, host.name
 
   /* archive deletion of that same path */
   [file where
     winlog.event_id : "23"
     and winlog.channel : "Microsoft-Windows-Sysmon/Operational"
     and file.extension : "zip"
-  ] by file.path
+  ] by file.path, host.name

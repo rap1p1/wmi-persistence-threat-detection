@@ -42,10 +42,52 @@ MANDATORY = {"S1", "S2", "S3", "S4", "S5", "S6", "S7"}
 # Backing store for the Sysmon channel (re-fetch by es_id during ES re-verification).
 SYS_INDEX = ".ds-logs-windows.sysmon_operational-*"
 
-# Fields re-checked against Elasticsearch for every event ref (ledger must agree).
-ES_FIELDS = ("event.code", "host.name", "winlog.channel", "winlog.event_id",
-             "process.name", "process.entity_id", "process.parent.entity_id",
-             "file.path", "destination.ip")
+# Fields re-checked against Elasticsearch for every event ref. A field missing on the
+# ES side is a FAIL when it is `required` for that event type, or a labelled GAP when
+# it is supplementary (`join`) - it is never silently skipped. `join` fields are the
+# ones the chain-of-evidence joins depend on.
+ES_FIELD_RULES = {
+    "default": {"required": ("event.code", "host.name", "winlog.channel"), "join": ()},
+    "1": {"required": ("event.code", "host.name", "winlog.channel", "process.name",
+                       "process.entity_id", "user.name"),
+          "join": ("process.parent.entity_id",)},
+    "3": {"required": ("event.code", "host.name", "winlog.channel", "process.entity_id",
+                       "destination.ip", "destination.port", "user.name"),
+          "join": ()},
+    "11": {"required": ("event.code", "host.name", "winlog.channel", "file.path",
+                        "process.entity_id"),
+           "join": ()},
+    "13": {"required": ("event.code", "host.name", "winlog.channel", "registry.path"),
+           "join": ()},
+    "23": {"required": ("event.code", "host.name", "winlog.channel", "file.path"),
+           "join": ()},
+    "19": {"required": ("event.code", "host.name", "winlog.channel",
+                        "winlog.event_data.Name", "winlog.event_data.Operation"),
+           "join": ()},
+    "20": {"required": ("event.code", "host.name", "winlog.channel",
+                        "winlog.event_data.Name", "winlog.event_data.Operation"),
+           "join": ()},
+    "21": {"required": ("event.code", "host.name", "winlog.channel",
+                        "winlog.event_data.Consumer", "winlog.event_data.Filter",
+                        "winlog.event_data.Operation"),
+           "join": ()},
+}
+
+# Ledger-side fields compared against ES when the ledger records them (mismatch FAILs).
+ES_COMPARE_FIELDS = (
+    ("process_name", "process.name"),
+    ("entity_id", "process.entity_id"),
+    ("parent_entity_id", "process.parent.entity_id"),
+    ("file_path", "file.path"),
+    ("dst_ip", "destination.ip"),
+    ("dst_port", "destination.port"),
+    ("user", "user.name"),
+    ("registry_path", "registry.path"),
+    ("wmi_name", "winlog.event_data.Name"),
+    ("wmi_operation", "winlog.event_data.Operation"),
+    ("wmi_consumer", "winlog.event_data.Consumer"),
+    ("wmi_filter", "winlog.event_data.Filter"),
+)
 
 # Per-stage minimum event evidence (event code, required count, human hint).
 STAGE_EVENTS = {
@@ -378,22 +420,38 @@ def validate_run(ledger, directory, failures, gaps=None):
                 failures.append(f"stage {name}: event ref {r.get('es_id')} missing required "
                                 f"fields {missing_fields}")
 
-    # S3 module integrity is MANDATORY for full acceptance: the recorded svhw.ps1 hash
-    # must exist and equal the raw sha256 of the staged consumer (ART-01-02).
+    # S3 module integrity is MANDATORY for full acceptance: the GUEST PROBE measurement
+    # (probe-svhw-hash.json - a separate, dated, host/path/source-labelled measurement)
+    # must equal the canonical hash of the staged consumer (ART-01-02). Historical
+    # ledgers carry the probe hash on the EID 11 ref (same measurement, before the
+    # probe file existed); the probe FILE is authoritative when present.
     s3 = stages["S3"]
-    hash_ref = next((r for r in (s3.get("evidence_refs") or [])
-                     if r.get("kind") == "event" and str(r.get("event")) == "11"), None)
+    probe_path = directory / "probe-svhw-hash.json"
+    ref_hash = provenance = None
+    if probe_path.is_file():
+        try:
+            probe = json.loads(probe_path.read_text(encoding="utf-8"))
+            ref_hash = str(probe.get("sha256") or "").upper()
+            provenance = (probe.get("source") or "guest probe measurement") + \
+                         f"; captured {probe.get('captured_utc')}"
+        except (json.JSONDecodeError, OSError) as exc:
+            failures.append(f"S3: probe-svhw-hash.json unreadable: {exc}")
+    else:
+        hash_ref = next((r for r in (s3.get("evidence_refs") or [])
+                         if r.get("kind") == "event" and str(r.get("event")) == "11"), None)
+        if hash_ref and hash_ref.get("file_hash"):
+            ref_hash = str(hash_ref["file_hash"]).upper()
+            provenance = hash_ref.get("file_hash_provenance") or \
+                "guest probe (historical ledger; probe file absent)" + "; EID11 carries no Hashes"
     entry = next((a for a in ledger.get("artifact_index", [])
                   if a.get("artifact_id") == "ART-01-02"), None)
-    if not hash_ref or not hash_ref.get("file_hash"):
+    if not ref_hash:
         failures.append("S3: module hash missing (required for acceptance; provide the "
-                        "guest svhw.ps1 hash) - stage cannot be PASS")
+                        "guest svhw.ps1 hash probe) - stage cannot be PASS")
     elif entry is None:
         failures.append("S3: recorded svhw.ps1 file_hash but ART-01-02 "
                         "(staged consumer) missing from artifact_index")
     else:
-        ref_hash = str(hash_ref["file_hash"]).upper()
-        provenance = hash_ref.get("file_hash_provenance") or "not stated"
         staged = directory / entry["path"]
         if not staged.is_file():
             failures.append(f"S3: staged consumer file missing: {entry['path']}")
@@ -403,18 +461,44 @@ def validate_run(ledger, directory, failures, gaps=None):
             raw = el.raw_sha256(data)
             if ref_hash not in (canon, raw):
                 failures.append(f"S3: module integrity mismatch - staged consumer "
-                                f"canonical={canon[:16]}... raw={raw[:16]}... != recorded "
-                                f"svhw.ps1 hash {ref_hash[:16]}...")
+                                f"canonical={canon[:16]}... raw={raw[:16]}... != probe "
+                                f"hash {ref_hash[:16]}...")
             elif ref_hash == canon and raw != canon:
-                print(f"  ok  S3 module integrity: recorded svhw.ps1 hash == staged consumer "
+                print(f"  ok  S3 module integrity: probe hash == staged consumer "
                       f"CANONICAL hash ({ref_hash[:16]}...; {provenance}; repo copy CRLF, "
                       "guest copy LF)")
             else:
-                print(f"  ok  S3 module integrity: recorded svhw.ps1 hash == staged consumer "
+                print(f"  ok  S3 module integrity: probe hash == staged consumer "
                       f"hash ({ref_hash[:16]}...; {provenance})")
 
     # chain-of-evidence joins over the ledger fields (EQL cannot bind these)
     join_checks(ledger, failures, gaps)
+
+    # S2 elevation gate: a Medium->High transition is provable ONLY from pre/post
+    # integrity measurements of a run that started from a Medium-integrity filtered
+    # token. Reference runs (High-integrity operator start, no measurements) are
+    # therefore "mechanism observed, elevation unverified" - a GAP, never a claim.
+    elev_b = directory / "elevation-before.json"
+    elev_a = directory / "elevation-after.json"
+    if elev_b.is_file() and elev_a.is_file():
+        try:
+            b = json.loads(elev_b.read_text(encoding="utf-8"))
+            a = json.loads(elev_a.read_text(encoding="utf-8"))
+            bi = (b.get("current_session") or {}).get("integrity_label") or ""
+            ai = (a.get("current_session") or {}).get("integrity_label") or ""
+            medium_before = "Medium" in bi
+            high_after = ("High" in ai) or ("System" in ai)
+            if medium_before and high_after:
+                print(f"  ok  S2 elevation: {bi} -> {ai} (Medium->High observed)")
+            else:
+                failures.append(f"S2: elevation transition not demonstrated "
+                                f"(before={bi!r} after={ai!r})")
+        except (json.JSONDecodeError, OSError) as exc:
+            failures.append(f"S2: elevation measurement unreadable: {exc}")
+    else:
+        gaps.append("S2: elevation unverified - the run did not start from a "
+                    "Medium-integrity filtered token with pre/post integrity "
+                    "measurements; only the bypass mechanism was observed")
 
     # S6: transfer integrity from the receipt artifact (offline-verifiable).
     receipt_row = None
@@ -545,20 +629,43 @@ def es_verify(ledger, failures, tolerance_s=5.0):
                 failures.append(f"ES: {stage} event {es_id} timestamp drift "
                                 f"recorded={ref.get('ts')} actual={actual_ts}")
             db = lambda p: _dig(src, p)
-            if str(ref.get("event")) != str(db("event.code")):
+            code = str(ref.get("event"))
+            if code != str(db("event.code")):
                 failures.append(f"ES: {stage} event {es_id} code mismatch "
-                                f"ledger={ref.get('event')} es={db('event.code')}")
-            if ref.get("process_name") and db("process.name") and \
-                    str(ref["process_name"]).lower() != str(db("process.name")).lower():
-                failures.append(f"ES: {stage} event {es_id} process.name mismatch "
-                                f"ledger={ref['process_name']} es={db('process.name')}")
-            for field, path in (("entity_id", "process.entity_id"),
-                                ("file_path", "file.path"),
-                                ("dst_ip", "destination.ip")):
-                lv, ev = ref.get(field), db(path)
-                if lv and ev and str(lv) != str(ev):
-                    failures.append(f"ES: {stage} event {es_id} {path} mismatch "
-                                    f"ledger={lv} es={ev}")
+                                f"ledger={code} es={db('event.code')}")
+            rules = ES_FIELD_RULES.get(code, ES_FIELD_RULES["default"])
+            # Required fields missing on the ES side FAIL; join fields missing are a
+            # labelled GAP (the ledger row still carries them).
+            for path in rules["required"]:
+                if db(path) in (None, ""):
+                    failures.append(f"ES: {stage} event {es_id} (code {code}) required field "
+                                    f"{path} missing in Elasticsearch")
+            for path in rules["join"]:
+                if db(path) in (None, "") and not ref.get(path.split(".")[-1]):
+                    gaps.append(f"ES: {stage} event {es_id} (code {code}) join field {path} "
+                                "absent in ES and ledger - join relies on other keys")
+                elif db(path) in (None, ""):
+                    gaps.append(f"ES: {stage} event {es_id} (code {code}) join field {path} "
+                                "absent in ES (ledger has it); join verified from the ledger")
+            # Ledger-vs-ES comparison: compare whenever the ledger records a value; a
+            # missing ES value for a ledger-recorded join field is reported, not skipped.
+            for lfield, path in ES_COMPARE_FIELDS:
+                lv, ev = ref.get(lfield), db(path)
+                if lv in (None, ""):
+                    continue
+                if ev in (None, ""):
+                    gaps.append(f"ES: {stage} event {es_id} ledger has {lfield}={lv!r} but ES "
+                                f"{path} is empty - value not re-verified")
+                else:
+                    ln, en_ = _norm(lv), _norm(ev)
+                    # WMI reference text never ends with a literal backslash; the
+                    # ledger builder's old trim left a dangling `\` from an escaped
+                    # quote, so drop it ONLY for those fields on both sides.
+                    if lfield in ("wmi_consumer", "wmi_filter"):
+                        ln, en_ = ln.rstrip("\\"), en_.rstrip("\\")
+                    if ln != en_:
+                        failures.append(f"ES: {stage} event {es_id} {path} mismatch "
+                                        f"ledger={lv!r} es={ev!r}")
             hosts = {s.get("host") for s in ledger.get("stages", []) if s.get("host")}
             if db("host.name") and hosts and db("host.name") not in hosts:
                 failures.append(f"ES: {stage} event {es_id} host {db('host.name')!r} "
@@ -573,6 +680,23 @@ def _dig(doc, dotted):
             return None
         cur = cur[part]
     return cur
+
+
+def _norm(v):
+    """Normalise a field value for ledger-vs-ES comparison, SYMMETRICALLY.
+
+    Sysmon text fields (WMI references, registry paths) are stored by the Windows
+    event log with quoting, padding and escaped quotes; the ledger builder trims them
+    (partially, historically). Comparing raw strings is therefore unreliable. Both
+    sides are normalised identically: strip whitespace, unescape `\\"`, then drop all
+    double-quote characters (none of the compared fields need quotes semantically -
+    process names, entities, file paths, IPs, ports, users, registry paths, WMI
+    reference names). Any real value difference still fails.
+    """
+    if v is None:
+        return None
+    s = str(v).strip().replace('\\"', '"').replace('"', "")
+    return s.replace("\\\\", "\\").casefold()
 
 
 def main(argv=None):

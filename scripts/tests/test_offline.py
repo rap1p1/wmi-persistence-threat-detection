@@ -300,9 +300,9 @@ class TimestampToleranceTests(unittest.TestCase):
 
         ledger = {"stages": [{"stage": "S1", "evidence_refs": [
             {"kind": "event", "es_id": "x", "ts": "2026-10-13T01:00:05Z"}]}]}
-        failures = []
+        failures, gaps = [], []
         with mock.patch.dict(os.environ, {"ES_URL": "", "ES_PASS": ""}):
-            self.assertEqual(vr.es_verify(ledger, failures), (0, 0))
+            self.assertEqual(vr.es_verify(ledger, failures, gaps), (0, 0))
         self.assertEqual(failures, [])
 
 

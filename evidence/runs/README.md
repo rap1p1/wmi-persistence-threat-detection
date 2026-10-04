@@ -10,6 +10,7 @@ Each run is a directory containing its ledger and artifacts.
 | `runs/RUN-20261003-01/` | first verified run: ledger + artifacts + sink receipt (verifier ACCEPTED, report `reports/reference-run-20261003-01.md`) |
 | `runs/RUN-20261003-02/` | live-alert run: ledger + artifacts + sink receipt (rebuilt with entity-based E3 ownership; verifier ACCEPTED, report `reports/reference-run-20261003-02.md`) |
 | `runs/RUN-20261003-03/` | final export run: ledger + artifacts + sink receipt (verifier ACCEPTED; 14 unique clusters / 25 stored alerts; report `reports/reference-run-20261003-03.md`) |
+| `runs/RUN-20261003-04/` | **Medium-integrity start**: ledger + elevation-before/after + finalised receipt + reboot-survival (AV-off) + alert manifest (report `reports/reference-run-20261003-04.md`) |
 | `sanitized-screenshots/` | **historical** April-2026 screenshots with hashes. These are provenance for the earlier analysis, not evidence for any run; keep them out of any acceptance claim. |
 
 ## Ledger conventions

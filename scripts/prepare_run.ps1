@@ -46,8 +46,7 @@ foreach ($f in @('setup.bat', 'install.ps1', 'consumer.ps1')) {
     if ($f -like '*.ps1' -and $src -notmatch '__RUN_ID__|__SINK_BASE__|__HOST__') {
         throw "placeholders missing in payloads\$f - staged copy unsafe"
     }
-    $src = $src.Replace('__RUN_ID__', $RunId).Replace('__SINK_BASE__', $SinkBase) `
-                .Replace('__HOST__', $HostName).Replace('__SINK_TOKEN__', $SinkToken)
+    $src = $src.Replace('__RUN_ID__', $RunId).Replace('__SINK_BASE__', $SinkBase).Replace('__HOST__', $HostName)
     [System.IO.File]::WriteAllText((Join-Path $out $f), $src,
         (New-Object System.Text.UTF8Encoding($false)))
 }
@@ -56,7 +55,11 @@ $staged = Join-Path $out 'consumer.ps1'
 $content = Get-Content $staged -Raw -Encoding UTF8
 if (-not $content.Contains($RunId)) { throw 'run id missing in staged consumer' }
 if (-not $content.Contains($SinkBase)) { throw 'sink base missing in staged consumer' }
-if (-not $content.Contains($SinkToken)) { throw 'sink token missing in staged consumer' }
+
+# The sink token is NOT embedded in any committed file. It must be placed on the GUEST
+# as %TEMP%\lab-token.txt (same value the sink runs with) - the consumer reads it at
+# runtime. Never commit the token.
+"place the sink token on the guest as C:\Users\<user>\AppData\Local\Temp\lab-token.txt"
 
 $hash = (Get-FileHash $staged -Algorithm SHA256).Hash
 "staged under evidence/runs/$RunId/payload"

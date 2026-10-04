@@ -1,0 +1,14 @@
+﻿{
+    "run_id":  "RUN-20261003-04",
+    "stage":  "before",
+    "captured_utc":  "2026-10-04T08:14:46Z",
+    "current_session":  {
+                            "user":  "wmi\\duc",
+                            "sid":  "S-1-5-21-712721020-3028668141-2696198267-1001",
+                            "integrity_label":  "Mandatory Label\\Medium Mandatory Level Label S-1-16-8192",
+                            "mandatory_label_present":  true,
+                            "groups_high":  false,
+                            "groups_medium":  true
+                        },
+    "caveat":  "whoami /groups Mandatory Label is the recorded integrity basis; a conclusive comparison should additionally read GetTokenInformation (TokenIntegrityLevel + TokenElevation) on the same process - extend this probe if the P/Invoke path is available."
+}

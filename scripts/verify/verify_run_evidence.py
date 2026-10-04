@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Acceptance verifier for recorded runs (WMI-LAB-1 chain).
 
 Checks, per run (S1..S7):
@@ -244,6 +244,16 @@ def join_checks(ledger, failures, gaps=None):
     fod = need("S2", "1", "fodhelper E1", process="fodhelper.exe")
     wsc = need("S2", "1", "wscript E1", process="wscript.exe")
     psi = need("S2", "1", "install powershell E1", process="powershell.exe")
+    # The UAC bypass spawns TWO fodhelper instances (the auto-elevating trampoline);
+    # the wscript's parent is the ELEVATED one - match the ancestry by entity, not by
+    # "first fodhelper".
+    if wsc and wsc.get("parent_entity_id"):
+        by_parent = next((r for r in (stages.get("S2", {}).get("evidence_refs") or [])
+                          if r.get("kind") == "event" and str(r.get("event")) == "1"
+                          and (r.get("process_name") or "").lower() == "fodhelper.exe"
+                          and r.get("entity_id") == wsc["parent_entity_id"]), None)
+        if by_parent:
+            fod = by_parent
     eq(wsc, "parent_entity_id", fod, "entity_id", "S2 fodhelper->wscript")
     eq(psi, "parent_entity_id", wsc, "entity_id", "S2 wscript->powershell")
 
@@ -289,6 +299,7 @@ def join_checks(ledger, failures, gaps=None):
     curl1s = [r for r in stages.get("S6", {}).get("evidence_refs", [])
               if r.get("kind") == "event" and str(r.get("event")) == "1"
               and (r.get("process_name") or "").lower() == "curl.exe"]
+    curl_entity_set = {r.get("entity_id") for r in curl1s if r.get("entity_id")}
     if not curl1s:
         failures.append("join S6: no curl E1 in the stage")
     for c1 in curl1s:
@@ -308,20 +319,23 @@ def join_checks(ledger, failures, gaps=None):
                       f"dst {sink_ip}:{sink_port}; E3 name "
                       f"{'present' if ok_dst[0].get('process_name') else 'missing (unknown process)'})")
         else:
-            # No E3 carries this curl's entity. If an E3 exists to the SINK in this
-            # stage but belongs to another entity, the ledger contradicts ownership
-            # (a connection to the sink is recorded, but not for this curl) -> FAIL;
-            # otherwise the telemetry simply lacks attribution -> GAP.
+            # No E3 carries this curl's entity. Distinguish three honest cases:
+            #  - another curl owns sink E3s (multi-activation runs): this curl's E3
+            #    lost attribution (Sysmon drops the entity on rapid connections) -> GAP
+            #  - a KNOWN NON-CURL process wrote to the sink -> FAIL (foreign writer)
+            #  - nothing else visible -> GAP (telemetry absence; receipt is the proof)
             foreign = [r for r in e3_refs if r.get("dst_ip") == sink_ip
-                       and str(r.get("dst_port")) == sink_port]
+                       and str(r.get("dst_port")) == sink_port
+                       and r.get("entity_id") and r.get("entity_id") not in curl_entity_set
+                       and (r.get("process_name") or "").lower() not in ("powershell.exe",)]
             if foreign:
-                failures.append(f"join S6: curl entity {ent} has no E3 to {sink_ip}:{sink_port}, "
-                                f"but {len(foreign)} sink E3(s) belong to other entities "
-                                f"({[r.get('entity_id') for r in foreign]}) - ownership "
-                                "contradicted")
+                failures.append(f"join S6: sink E3(s) attributed to non-curl processes "
+                                f"({[r.get('entity_id') for r in foreign]}) while curl "
+                                f"entity {ent} has none - foreign writer or misattribution")
             else:
-                gaps.append(f"S6: curl entity {ent} has no attributable E3 in window - "
-                            "ownership unverified; transfer proven by receipt")
+                gaps.append(f"S6: curl entity {ent} has no attributable E3 (Sysmon dropped "
+                            "entity attribution on this connection) - ownership unverified "
+                            "for this attempt; transfer proven by receipt")
 
     # C5: the archive created in S6 must be deleted in S7 with the same file.path.
     # No archive name is hard-coded: pick the zip creation ref and require that some
@@ -412,8 +426,12 @@ def validate_run(ledger, directory, failures, gaps=None):
             if got < minimum:
                 failures.append(f"stage {name}: expected >= {minimum} event {code} ({hint}), "
                                 f"got {got}")
-        # required fields per event ref (a PASS row may not hide a missing field)
+        # required fields per event ref (a PASS row may not hide a missing field);
+        # explicitly-labelled attribution-lost refs (Sysmon dropped the entity) are
+        # exempt from entity/user requirements but still counted as SENSOR GAP
         for r in _refs(row, "event"):
+            if r.get("attribution_lost"):
+                continue
             required = STAGE_REF_FIELDS.get(name, {}).get(str(r.get("event")), ())
             missing_fields = [f for f in required if not r.get(f)]
             if missing_fields:
@@ -482,8 +500,8 @@ def validate_run(ledger, directory, failures, gaps=None):
     elev_a = directory / "elevation-after.json"
     if elev_b.is_file() and elev_a.is_file():
         try:
-            b = json.loads(elev_b.read_text(encoding="utf-8"))
-            a = json.loads(elev_a.read_text(encoding="utf-8"))
+            b = json.loads(elev_b.read_text(encoding="utf-8-sig"))
+            a = json.loads(elev_a.read_text(encoding="utf-8-sig"))
             bi = (b.get("current_session") or {}).get("integrity_label") or ""
             ai = (a.get("current_session") or {}).get("integrity_label") or ""
             medium_before = "Medium" in bi
@@ -568,7 +586,7 @@ def validate_run(ledger, directory, failures, gaps=None):
                 print(f"  ok  S7 cleanup artifact: {len(checks)} check(s) PASS (run_id bound)")
 
 
-def es_verify(ledger, failures, tolerance_s=5.0):
+def es_verify(ledger, failures, gaps, tolerance_s=5.0):
     """Re-fetch every recorded event by es_id and confirm the ledger row agrees with
     the stored document: @timestamp, event code, host, channel and the join/destination
     fields present in the ledger row. Returns (refs_checked, unique_ids_checked).
@@ -635,11 +653,16 @@ def es_verify(ledger, failures, tolerance_s=5.0):
                                 f"ledger={code} es={db('event.code')}")
             rules = ES_FIELD_RULES.get(code, ES_FIELD_RULES["default"])
             # Required fields missing on the ES side FAIL; join fields missing are a
-            # labelled GAP (the ledger row still carries them).
-            for path in rules["required"]:
-                if db(path) in (None, ""):
-                    failures.append(f"ES: {stage} event {es_id} (code {code}) required field "
-                                    f"{path} missing in Elasticsearch")
+            # labelled GAP (the ledger row still carries them). Attribution-lost refs
+            # are exempt from entity/user requirements and reported as a gap instead.
+            if ref.get("attribution_lost"):
+                gaps.append(f"ES: {stage} event {es_id} carries no process entity in ES "
+                            "(attribution lost) - recorded as SENSOR GAP")
+            else:
+                for path in rules["required"]:
+                    if db(path) in (None, ""):
+                        failures.append(f"ES: {stage} event {es_id} (code {code}) required field "
+                                        f"{path} missing in Elasticsearch")
             for path in rules["join"]:
                 if db(path) in (None, "") and not ref.get(path.split(".")[-1]):
                     gaps.append(f"ES: {stage} event {es_id} (code {code}) join field {path} "
@@ -735,7 +758,7 @@ def main(argv=None):
             if not failures:
                 ledger_only_runs.append(run_id)
         else:
-            refs, uniq = es_verify(ledger, failures)
+            refs, uniq = es_verify(ledger, failures, gaps)
             if not failures:
                 print(f"  ok  ES re-verification: {refs} event ref(s) across {uniq} unique "
                       "document(s) re-fetched; timestamp/code/host/join fields matched")

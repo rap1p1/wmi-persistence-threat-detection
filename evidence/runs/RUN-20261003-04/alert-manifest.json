@@ -1,0 +1,343 @@
+{
+ "run_id": "RUN-20261003-04",
+ "window": {
+  "gte": "2026-10-04T08:15:00Z",
+  "lte": "2026-10-04T08:23:00Z"
+ },
+ "note": "stored alerts (rules live incl. non-block S4)",
+ "rules": [
+  {
+   "id": "R1",
+   "name": "[R1] ms-settings Open Command Registry Hijack",
+   "stored_alerts": 2,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:15:09.424Z",
+     "_id": "fb31c15fc2b034c04dd39e0f1706647432cdaaf5edf56be07cac5fe565e100e3",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:15:09.435Z",
+     "_id": "2b71cada15b957c1938f31d006b69de6dd1d550903a7b20f3b4c526d4ea7cbb1",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "C1",
+   "name": "[C1] Fodhelper Child Interpreter",
+   "stored_alerts": 1,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:15:12.310Z",
+     "_id": "03f9ffe9b7f7ae5459a22d8508b60932a6367cc803cd4eeb26e5194fdf9ab4ae",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "S1",
+   "name": "[S1] Script Host With Fodhelper or Cmd Parent",
+   "stored_alerts": 1,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:15:09.448Z",
+     "_id": "45b63f892c4e7a5549966de8700d7ead87ac213b72a1ff5255e5ec518ada49dd",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "S2",
+   "name": "[S2] PowerShell Hidden and Bypass or Encoded Command Patterns",
+   "stored_alerts": 4,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:15:18.196Z",
+     "_id": "1939fec8071db4bee0b35a3f646725fcfe7d5cf8186b05f01e436da09f6fd6d4",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.906Z",
+     "_id": "162e78e8ae15012f72f74649e9584e0deeb5475b4f8dce4c3291d5036c20c2f1",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:18.238Z",
+     "_id": "325a9aecc283c8fb3ac90dd6e250bddd2bf6e6933783a029f9acbfad89186a5d",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:18.149Z",
+     "_id": "a9fdbc60004ebc106f05d050063ef965149cdabc250ba636eaa23810bc14132e",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "C2",
+   "name": "[C2] WMI Subscription Registration Sequence",
+   "stored_alerts": 4,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:18.885Z",
+     "_id": "63d9a2dda2754437f2f27fd3f86751f8290cd98a6f4b27ab198c0cbcf4fec268",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.891Z",
+     "_id": "9c58de8cdc11df71d55ec5bf6b67245d5c769eae7e7d7f47ed68f12b2588002a",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.893Z",
+     "_id": "88dda3209455b8fec26d1563a76fc633a87c9daa6c41989bd0593688a67d594d",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.901Z",
+     "_id": "7840ee3171b6d57dac9a312667f2f6a94b9d1923ba0cbf0790c7f85cc204056a",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "R2",
+   "name": "[R2] WMI Subscription Registration Followed by WMI-Hosted Interpreter",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:18.909Z",
+     "_id": "9a1ff78586b883e52a0663545ffe20196686235fcfd6dc883c796453beb6fdd5",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.911Z",
+     "_id": "e08f812593d3006f6e4dcab7e238e26806471efe6f397d42395e25feb428b02f",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:18.917Z",
+     "_id": "0c60170b3680539fd7c38ef541565d2b1db50c8fb8ce19de453ebfa3f357c6ab",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "S3",
+   "name": "[S3] SYSTEM Shell or Tool With WMI Host Parent",
+   "stored_alerts": 3,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:15.198Z",
+     "_id": "f3c4579f6acc8d8729e0353ea27ced2d8d81b708f077d7047cd2396f7fe58602",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:15.177Z",
+     "_id": "649e2cea7d60a6965f1bbee1569dcec530d8a2857cca0d85966ef7001fff99b1",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:15.109Z",
+     "_id": "17aead7bcd8cc82b6a95c721ab6b52805f86f880856c6fd812ed2450bbed0fbb",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "C3",
+   "name": "[C3] WMI-Hosted Interpreter Followed by Discovery Process",
+   "stored_alerts": 9,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:12.302Z",
+     "_id": "60d28ccbff4ad99198d84b3d4e9c05af00ed91e8cca0ec5c23fdc586727d6d42",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.304Z",
+     "_id": "e31b8010fb33ac4fbb3a909716dd5eb83a6085301d63203930bbf2f2954f390b",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.309Z",
+     "_id": "9f9372ca709ad9dfe45ede2e0ce57cfd1475c391b157fba76a341f9e981c2c14",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.263Z",
+     "_id": "5106719c6c351756cf4eb648a33b007c06b4baeca809e5b8bf780fe774a9b4bf",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.266Z",
+     "_id": "fa0fbf7ebf85fa18368876f988882a49e695cb6cf828a58934b5ea4030902259",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.270Z",
+     "_id": "21f904d9211c28115c076f9a51205810f9a26f7457aefa8774dce0ff059c61bd",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.907Z",
+     "_id": "bfd1120193e35a4339c7e431e6f017299b4d30fc874b2be672cedc3bd418451f",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.917Z",
+     "_id": "ce41666f238cd6dd6184380ad848328a1e933f2721271e5aeb015d156a571086",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.929Z",
+     "_id": "e97f71679bb340e67fa721ac8f928ae9d06fb442f4ae32e1fb1bdad304ab66b2",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "C4",
+   "name": "[C4] Staging and Archive Creation by a Single Process",
+   "stored_alerts": 9,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:12.320Z",
+     "_id": "f0ee32a0618a8b8f158af3b19713becb9383d0d046e3f7d7fce69aba67a77d32",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.326Z",
+     "_id": "9d9f39e8db06498c86284b1c42ab859a1d774844b66eada097e126c551902bca",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.333Z",
+     "_id": "91c8ed7a94d51f2857e775a8c8ab424379f8ae426980171a1752ac0aee4eefb0",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.283Z",
+     "_id": "bc42315ea2ea5dcf6a63cb3cad9e686a9e3e75b3da1bbda715f832ac0c681bb5",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.284Z",
+     "_id": "24b7449e6c1546c30c988f742a0f91d081e42eee51c93cf08c35aed3ae968d5c",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.288Z",
+     "_id": "eee602fbcdfcfd5fc17f41a365aa4b41ff1960f6c3444fdacf17936f4a364a7f",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.414Z",
+     "_id": "59b92118080abd44317b44057dd29ba52f7490fcedad92c005a9203383a0195f",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.444Z",
+     "_id": "b280ceb9b5486de367e5f7840522e34036f6c8ff0aeb4e3cf1f81cd45e4a47b1",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.562Z",
+     "_id": "427b903ae52e53646a33041fafe18ca5a54229b64444c951f4f2763fa9310a97",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "S4",
+   "name": "[S4] Script-Spawned Curl with Upload Arguments",
+   "stored_alerts": 6,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:15.191Z",
+     "_id": "27cf01d46bc93e123311e6856499c99065dcebe2a240ad2b95f8ffe75d55e4ef",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:15.194Z",
+     "_id": "15fccd7cec7c82b9a2d8118c2b27f29cf6dadcb3771bfb74e8949efeb56233c6",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:15.190Z",
+     "_id": "fe8f3a15471cdf3c6c6fb193d6633320c24bbe9e0f358e2ed0a6230e50b11327",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:15.194Z",
+     "_id": "0da15dc99b83223465f2080fec88fcdc45a2ee90f228e0c8aedb0a5e3f749822",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:15.115Z",
+     "_id": "db24569d87853c43eda1d612f370d1e1f5bd700fb7da6fbfbfe08f53468a4d33",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:15.120Z",
+     "_id": "3da98304f9debec212e09b5ee881eaa4e2ad6f04057c03e469f1adbd26f05ec8",
+     "original_code": null
+    }
+   ]
+  },
+  {
+   "id": "C5",
+   "name": "[C5] Archive Creation Followed by Archive Deletion",
+   "stored_alerts": 9,
+   "alerts": [
+    {
+     "@timestamp": "2026-10-04T08:16:12.278Z",
+     "_id": "edf217d284a5a84111acc2538b8f6c1092bf1d3dc9670346337b6b26c9af5cdb",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.285Z",
+     "_id": "ee10c762e1fc268be9d0523713b62539301d403498023bc119c411c58bd24a02",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:16:12.296Z",
+     "_id": "ab85e5814282233897a87777f35f88154a90bcf6eece7f66c8a416e16d8d5c91",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.241Z",
+     "_id": "575798fe82f74ec3359fd3ba5bd65634e6e7539ac81897ceb84b5d9d81376215",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.244Z",
+     "_id": "47dd057e240e87de8b357de62a1bf549f5bbcc74e54ddb56719e1277d141ea96",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:18:12.253Z",
+     "_id": "1d524f978af95ea30091fa8888e6e60934e9e797a2fd9b06b358c1168bbe0fc6",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.826Z",
+     "_id": "8576eb0c7cdec18236e2ff88b647e3d2735377a0c4408f4f955fec91ee3cec66",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.829Z",
+     "_id": "aad4c38dc7d591808f8e2fb40ab440919abc6dea89e4d85d7c6ec3baffc97e8d",
+     "original_code": null
+    },
+    {
+     "@timestamp": "2026-10-04T08:21:12.835Z",
+     "_id": "857162a0a753c5ab436e2867b31ee2dbb3d6a1b9fc647afb08a016c7ef169e36",
+     "original_code": null
+    }
+   ]
+  }
+ ],
+ "total_stored_alerts": 51
+}

@@ -46,8 +46,10 @@ Rule IDs such as **S1** identify detections; stage IDs such as **S1** identify s
 
 ## Recorded results
 
-Three runs are recorded. The **latest is RUN-20261003-03** (3 October 2026,
-**11:36:20–11:40:00 UTC**, declared window); RUN-20261003-01 and -02 are historical.
+Four runs are recorded. The **latest is RUN-20261003-04** (4 October 2026,
+**08:15:00–08:23:00 UTC**, declared window) — the first run with a **Medium-integrity
+start** that demonstrates the UAC bypass's Medium→High transition and includes the
+**reboot-survival (AV-off) evidence**. RUN-20261003-01/02/03 are historical.
 Environment: Windows 10 Pro 19045, Sysmon 15.21, Elastic Agent 9.5.3, Elasticsearch
 9.5.3, internal sink on port 9180.
 

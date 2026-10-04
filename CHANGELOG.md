@@ -1,5 +1,33 @@
 ﻿# Change record
 
+## 2026-10-04 - RUN-20261003-04 (Medium-integrity start) + reboot survival + sink/elevation hardening exercised
+
+- **Medium-integrity run executed (the elevation test).** The chain was launched from
+  the filtered token of local Administrator `wmi\duc` (LIMITED scheduled task): the
+  S2 elevation gate now records `ok S2 elevation: Medium (S-1-16-8192) -> High
+  (S-1-16-12288) (Medium->High observed)` from elevation-before/after measurements,
+  corroborated by per-event Sysmon E1 `IntegrityLevel` (cmd/reg Medium; fodhelper
+  Medium->High trampoline; wscript/powershell High; consumer/curl System). The UAC
+  bypass mechanism's filtered-token transition is now EVIDENCED, not assumed.
+- **Reboot survival (AV-off) executed.** Guest power-cycled; subscription objects
+  (filter/consumer/binding) survived and the post-boot notepad trigger fired the
+  consumer (E1 AaEGEjMycFpEpRZGWiM- 2026-10-04T08:40:21Z, parent WmiPrvSE, SYSTEM,
+  integrity System). Windows Defender was STOPPED in the guest - the AV-on pass
+  remains pending (identical procedure, documented). No persistence-vs-AV claim.
+- **Sink contract exercised live:** bound interface, token auth (first token-less
+  upload got 403), receipt finalised then a later PUT rejected (409) - transfer
+  evidence is immutable after finalise.
+- **Multi-activation honesty:** three consumer activations (first failed upload,
+  token-path issue); all are in the ledger, none rewritten; verifier GAPs record the
+  Sysmon entity-drop on first-connection E3s (receipt remains the transfer proof).
+- **S4 alerts visible by default:** with S4 exported as a non-building-block rule,
+  this run's stored alerts include **S4 = 6** (default Kibana filter view); 51 stored
+  alerts total with per-alert ids in the run's alert-manifest (upper bounds).
+- Misc: BOM-less JSON writes in guest probes; elevation/reboot scripts now run
+  in-guest with explicit output paths; prepare_run no longer embeds the sink token in
+  committed payloads (guest file %TEMP%\lab-token.txt + SYSTEM temp fallback).
+
+
 ## 2026-10-03 - Second remediation round: elevation honesty, sink hardening, ES field rules, host-bound joins
 
 - **Elevation honesty (FIXED):** no run claims a UAC elevation. The reference runs start

@@ -1,0 +1,31 @@
+{
+  "notes": "post-run guest probe from the Medium-integrity run; elevation measured separately (elevation-before/after)",
+  "run_id": "RUN-20261003-04",
+  "checks": [
+    {
+      "detail": "guest probe 2026-10-04T08:19Z: Test-Path False",
+      "check": "wdmp.zip removed in guest",
+      "result": "PASS"
+    },
+    {
+      "detail": "guest probe: False",
+      "check": "wdmp staging dir removed",
+      "result": "PASS"
+    },
+    {
+      "detail": "probe hash A9E0BFF5..., Contains(RUN-20261003-04)=True",
+      "check": "svhw.ps1 present with run id",
+      "result": "PASS"
+    },
+    {
+      "detail": "install re-registers NotepadFilter/SystemDumpConsumer",
+      "check": "subscription re-installed by design",
+      "result": "PASS"
+    },
+    {
+      "detail": "ART-07-01-RUN-20261003-04.json",
+      "check": "sink receipt received (wdmp.zip 16264 B)",
+      "result": "PASS"
+    }
+  ]
+}

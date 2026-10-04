@@ -1,0 +1,9 @@
+{
+  "measurement": "svhw.ps1 hash probe",
+  "run_id": "RUN-20261003-04",
+  "host": "wmi",
+  "path": "C:\\Windows\\Temp\\svhw.ps1",
+  "sha256": "A9E0BFF5A41449D2811CE80198590CA79DB4506B378364B240603FD1120505D2",
+  "captured_utc": "2026-10-04T08:24:34Z",
+  "source": "guest probe (Get-FileHash) run via vmrun; EID11 event carries no Hashes"
+}

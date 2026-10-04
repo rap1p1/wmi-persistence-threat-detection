@@ -1,0 +1,19 @@
+{
+  "run_id": "RUN-20261003-04",
+  "check": "WMI subscription survival across a guest reboot (AV-off pass)",
+  "av_state": "Windows Defender STOPPED in the guest at capture time (AV-off); an AV-on pass is NOT YET EXECUTED (the procedure in scripts/reboot_survival_check.ps1 is identical; needs WinDefend enabled to repeat)",
+  "composition": [
+    { "check": "objects alive after reboot", "result": "PASS",
+      "detail": "post-boot guest probe 2026-10-04T15:41+07: __EventFilter NotepadFilter=1; CommandLineEventConsumer SystemDumpConsumer=1; __FilterToConsumerBinding=1; svhw.ps1 present" },
+    { "check": "trigger fires consumer after reboot", "result": "PASS",
+      "detail": "notepad E1 2026-10-04T08:40:20.227Z -> consumer powershell E1 AaEGEjMycFpEpRZGWiM- 08:40:21.543Z, parent WmiPrvSE.exe, user SYSTEM, integrity System (ES re-fetch)" },
+    { "check": "guest actually rebooted", "result": "PASS",
+      "detail": "Win32_OperatingSystem.LastBootUpTime 2026-10-04T15:29:29.5+07 (= reset issued 15:29:12+07); pre-reboot probe showed the same 1/1/1 objects" }
+  ],
+  "boundary": "This is persistence across OS restart with AV DISABLED and only proves the subscription objects + consumer execution survive a reboot. It is NOT a bypass claim, NOT an antivirus-evasion claim, and NOT a Medium/High elevation claim (that is separate: elevation-before/after in this run).",
+  "evidence_refs": [
+    { "es_id": "AaEGEjMycFpEpRZGWiM-", "ts": "2026-10-04T08:40:21.543Z", "event": "1",
+      "detail": "consumer powershell after reboot (parent WmiPrvSE, SYSTEM)" }
+  ],
+  "captured_utc": "2026-10-04T08:42:00Z"
+}

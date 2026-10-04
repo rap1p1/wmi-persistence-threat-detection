@@ -233,8 +233,16 @@ if curl_entities:
         ent = clean(gp(s, "process.entity_id"))
         dst = clean(gp(s, "destination.ip"))
         port = str(clean(gp(s, "destination.port")))
-        if ent in curl_entities and dst == SINK_IP and port == str(SINK_PORT):
-            s6_net_curl.append(ref(h))
+        # sink E3s: keep entity-matched curl connections AND entity-less ones (Sysmon
+        # can drop attribution for the first of two rapid connections - the verifier
+        # needs those visible to tell "attribution lost" from "foreign writer")
+        if dst == SINK_IP and port == str(SINK_PORT) and (ent in curl_entities or not ent):
+            r = ref(h)
+            if not ent:
+                r["attribution_lost"] = True
+                r["note"] = ("Sysmon dropped process attribution (entity/name empty) "
+                             "for this sink connection; kept visible as SENSOR GAP")
+            s6_net_curl.append(r)
 
 # baseline telemetry: collector traffic inside the window (NOT campaign refs)
 baseline_e3, tb = search_all(base_win + [{"term": {"event.code": "3"}},

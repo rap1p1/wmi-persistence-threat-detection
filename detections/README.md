@@ -6,9 +6,9 @@ All rules follow the same conventions:
 - **Deterministic `rule_id`** = SHA-256("WMI-LAB:" + rule name) rendered as a UUID
   (v5 shape) — re-imports overwrite instead of duplicating; rename ⇒ delete the old
   rule server-side, then import.
-- **Building blocks**: every rule carries `building_block_type=default` (hidden from
-  the default alert view, feeds correlation). No single signal asserts an incident;
-  conclusions come from the run ledger + verifier.
+- **Alert presentation**: 10 rules carry `building_block_type=default`. S4 is an
+  ordinary alert visible in the default view. No single signal asserts an incident;
+  conclusions depend on the rule scope and supporting evidence.
 - EQL on Sysmon (`logs-windows.sysmon_operational-*`, `winlog.channel =
   Microsoft-Windows-Sysmon/Operational`); interval 1 m, look-back 2–3 m per rule;
   suppression on host/entity groups (independent executions are not merged).
@@ -19,7 +19,7 @@ All rules follow the same conventions:
   "file=@detections/exports/wmi-rules.ndjson" -u elastic:... <kibana>/api/
   detection_engine/rules/_import?overwrite=true` (after deleting any prior imports).
 
-## Rule index (11 rules — building blocks)
+## Rule index (11 rules: 10 building blocks + S4 alert)
 
 | Rule | Name | Risk | Supp | EQL scope / fires at | Detection basis |
 |---|---|---|---|---|---|
@@ -43,13 +43,38 @@ impossible. Curl E1↔E3 ownership stays a verifier/ledger join (entity key), an
 acceptance verifier re-checks ancestry and path equality from the ledger — see
 `docs/correlation-architecture.md`.
 
-## Run coverage — RUN-20261003-03 (two distinct counts)
+## Latest run coverage — RUN-20261003-04
+
+Source: [alert manifest](../evidence/runs/RUN-20261003-04/alert-manifest.json), main
+window 4 October 2026, 08:15–08:23 UTC. The run contains three consumer activations.
+
+| Rule | Stored alerts |
+|---|---|
+| R1 | 2 |
+| C1 | 1 |
+| S1 | 1 |
+| S2 | 4 |
+| C2 | 4 |
+| R2 | 3 |
+| S3 | 3 |
+| C3 | 9 |
+| C4 | 9 |
+| S4 | 6 |
+| C5 | 9 |
+| **Total** | **51** |
+
+S4 contributes **6** ordinary alerts. Repeated activations and schedule overlap
+affect these counts. A RUN-04 unique-cluster total is not published; do not infer
+one from these stored documents or reuse the RUN-03 total. The separate reboot
+check is outside this manifest's window. See the [RUN-04 report](../reports/reference-run-20261003-04.md).
+
+## Historical comparison — RUN-20261003-03 (two distinct counts)
 
 Stored alerts and unique clusters are different quantities and are reported
 separately. **Stored alerts** are upper bounds (1 m schedule / 2 m look-back re-alert
 the same cluster across evaluations; the exported per-alert ids/timestamps are in
 `evidence/runs/RUN-20261003-03/alert-manifest.json`). **Unique clusters** are the
-direct EQL re-evaluation of the run window (one behaviour per rule, R1/S2 two).
+direct EQL re-evaluation of the run window (per-rule matches; R1/S2/S4 have two).
 
 | Rule | Unique clusters | Stored alerts |
 |---|---|---|
@@ -94,5 +119,6 @@ rules** — a short negative check, NOT a false-positive rate or precision claim
   `scripts/rules/gen_rules_ndjson.ps1` — an unloaded query imports silently and fails
   at execution with an empty query.
 
-See `docs/correlation-architecture.md` for join keys and evidence tiers, and
-`docs/attack-chain-plan.md` for per-stage boundaries.
+See the [correlation model](../docs/detection/correlation.md) for join keys and evidence tiers,
+[stage design](../docs/lab/stage-design.md) for per-stage boundaries, and
+[validation guide](../docs/validation/README.md) for tests and limitations.

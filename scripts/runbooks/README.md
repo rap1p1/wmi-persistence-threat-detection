@@ -1,11 +1,10 @@
 # Operator runbook — WMI-LAB-1 (S1–S7)
-#
-# Ground rules (playbook 2.3/2.4/§E): real timestamps only; a step may run only after
-# its gate is proven; every retry is recorded as a separate evidence row; operator
-# actions are declared as such here. Elevation is NEVER asserted: the reference runs
-# start from a High-integrity session, so S2 stays "mechanism observed, elevation
-# unverified" (see scripts/elevation_preflight.ps1 for what a Medium-integrity run
-# must record).
+
+Ground rules: use actual timestamps, record every retry and declare operator actions.
+Runs 01–03 began at High integrity. [RUN-04](../../reports/reference-run-20261003-04.md)
+records a filtered-administrator Medium-to-High transition using before/after
+measurements and corroborating process context. Its attached reboot test is AV-off.
+See the [validation guide](../../docs/validation/README.md) for assertion boundaries.
 
 ## Pre-run
 
@@ -13,7 +12,7 @@
 2. Start the sink BOUND TO THE LAB INTERFACE with the lab token (shared credential;
    never commit it):
    ```
-   $env:SINK_TOKEN='<lab token, >=16 chars, matches what prepare_run embeds>'
+   $env:SINK_TOKEN='<lab token, >=16 chars, matches the guest runtime token>'
    python scripts/sink_server.py --bind 192.168.106.1 --port 9180
    ```
    The sink refuses 0.0.0.0 and refuses uploads without the token. Receipts are
@@ -36,7 +35,7 @@
 | Stage | Operator action | Expected evidence (ledger rows) | Gate before next |
 |---|---|---|---|
 | S1 | double-click `setup.bat` (victim session) | E1 `cmd.exe` | E1 seen |
-| S2 | (automatic; mechanism only) | EID 13 `ms-settings` x2, E1 `fodhelper`, E1 `wscript` (parent fodhelper), E1 `powershell` (`-w hidden -ep bypass -f ...install.ps1`) | PowerShell E1 seen — **elevation NOT asserted** |
+| S2 | (automatic; assess starting integrity per run) | EID 13 `ms-settings` x2, E1 `fodhelper`, E1 `wscript` (parent fodhelper), E1 `powershell` (`-w hidden -ep bypass -f ...install.ps1`) | PowerShell E1 seen; elevation additionally requires recorded before/after integrity and corroborating process context |
 | S3 | (automatic) | EID 11 `svhw.ps1`, EID 19/20/21 Created; read-back check `svhw.ps1` contains run id; **module integrity**: GUEST PROBE hash of `svhw.ps1` (recorded in `probe-svhw-hash.json`) == staged consumer hash (ART-01-02). The EID 11 event carries no Hash field; never write one from EID 11 | EID 21 seen; run id verified; probe hash matches |
 | S4 | start `notepad.exe` | E1 `notepad.exe`, E1 `powershell` (parent `WmiPrvSE`, SYSTEM, `-f ...svhw.ps1`) | WmiPrvSE-parented PS E1 seen (SYSTEM context, not a UAC claim) |
 | S5 | (automatic) | E1 `arp.exe` (SYSTEM), EID 11 `info.txt`, `_manifest.txt`, staging copies | manifest EID 11 seen |
@@ -44,8 +43,8 @@
 | S7 | (automatic) | E1 `cmd.exe` (SYSTEM), EID 23 `wdmp.zip` + staging files | EID 23 seen; post-cleanup probe clean |
 
 Also see `scripts/reboot_survival_check.ps1` for the persistence-across-reboot
-procedure (before/after object checks + trigger; run once with AV on and once with AV
-off before claiming any survival).
+procedure. RUN-04 records an AV-off pass; an AV-on pass remains pending. State the
+AV condition and observation times for each separate experiment.
 
 ## Evidence capture (after the run)
 

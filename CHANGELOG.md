@@ -1,4 +1,12 @@
-﻿# Change record
+# Change record
+
+## 2026-10-07 — Documentation reorganization and RUN-04 reconciliation
+
+- Introduced an ordered research/lab/detection/validation reading path and historical archive.
+- Reconciled current summaries with RUN-04, including integrity transition, AV-off reboot scope, 51 stored alerts and S4 alert presentation.
+- Corrected documentation of token sourcing, query joins, schedule metadata and transfer semantics against the retained source/export.
+- Preserved scenario source, run-scoped payload copies, configurations, queries, exports and evidence records. Former document paths remain compatibility entry points.
+
 
 ## 2026-10-04 - RUN-20261003-04 (Medium-integrity start) + reboot survival + sink/elevation hardening exercised
 

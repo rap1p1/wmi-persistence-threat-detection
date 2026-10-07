@@ -1,5 +1,8 @@
 # Reference Run Report — RUN-20261003-03 (final export)
 
+[Run index](README.md) · [Study reading guide](../docs/README.md) · [Validation scope](../docs/validation/README.md)
+
+
 Window: **2026-10-03T11:36:20Z – 11:40:00Z** (declared run window). Ledger:
 `evidence/runs/RUN-20261003-03/` — stage statuses are **OBSERVED** (the builder does
 not self-certify); acceptance is the verifier's grading.

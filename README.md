@@ -1,128 +1,74 @@
-# Windows Kill Chain Design & Detection Engineering
+# WMI Persistence Threat Detection
 
-**UAC Bypass · WMI Persistence · Elastic Security**
+A Windows detection-engineering study of **Fodhelper-related UAC bypass and WMI permanent event subscriptions**, from registration and consumer execution to staging, internal transfer and cleanup. Sysmon telemetry, Elastic EQL rules and run-scoped evidence distinguish each assertion in the chain.
 
-A Windows security lab that designs a connected local intrusion chain and engineers detections for its observable behavior. The technical focus is **Fodhelper-based UAC bypass** and **WMI permanent event subscriptions**, followed by discovery, collection, archiving, transfer to an internal sink, and cleanup.
+**11 EQL rules · 4 retained runs · Latest: RUN-20261003-04, executed 4 October 2026**
 
-The repository brings together the scenario, Sysmon telemetry configuration, **11 EQL detections**, and run-scoped evidence. It follows the chain from registry changes and process ancestry to WMI object registration, consumer execution, file activity, and receiver-side transfer records.
+## Start here
 
-[Reference run (latest)](reports/reference-run-20261003-03.md) · [Historical runs](reports/README.md) · [Detection catalogue](detections/README.md) · [Run ledger (latest)](evidence/runs/RUN-20261003-03/RUN-20261003-03.json) · [Historical review snapshot](docs/repository-review-20261003.md)
+| Reading goal | Entry point |
+|---|---|
+| Understand the research questions and Windows concepts | [Research overview](docs/research/overview.md) |
+| Read the study in order | [Technical reading guide](docs/README.md) |
+| Inspect the latest evidence | [RUN-04 report](reports/reference-run-20261003-04.md) · [ledger](evidence/runs/RUN-20261003-04/RUN-20261003-04.json) |
+| Evaluate the detections | [Rule catalogue](detections/README.md) · [correlation design](docs/detection/correlation.md) |
+| Reproduce checks and inspect limitations | [Validation guide](docs/validation/README.md) |
 
-## Engineering focus
-
-- **UAC bypass telemetry:** observe the `ms-settings` registry changes, Fodhelper child interpreter, and subsequent PowerShell execution. Assess the process token separately when determining whether privilege elevation occurred.
-- **WMI persistence lifecycle:** distinguish filter–consumer–binding registration from trigger-associated execution and persistence across reboot.
-- **Behavioral detection:** combine six single-event queries and five EQL sequences, with explicit field dependencies, scheduling, and suppression settings.
-- **Evidence-driven investigation:** retain Elasticsearch event references, UTC timestamps, artifact hashes, a transfer receipt, and post-run cleanup observations.
-
-## Scenario design
-
-The scenario uses a standalone Windows workstation in a workgroup. Entry and the Notepad trigger are operator actions; the intervening installation and subsequent consumer activity are scripted.
+## Study at a glance
 
 ```mermaid
 flowchart TD
-    entry["Script entry"] --> uac["Fodhelper UAC bypass mechanism"]
-    uac --> subscription["WMI filter, consumer and binding"]
-    subscription --> activation["WMI consumer execution"]
-    trigger["Operator: Notepad trigger"] --> activation
-    activation --> collection["Discovery and file staging"]
-    collection --> transfer["ZIP archive and internal transfer"]
-    transfer --> cleanup["Staging and archive cleanup"]
+    entry["Filtered administrator token"] --> elevated["Medium-to-High evidence"]
+    elevated --> registration["WMI filter, consumer and binding"]
+    registration --> activation["Trigger-associated SYSTEM consumer"]
+    activation --> files["Staging, archive and internal transfer"]
+    files --> cleanup["Archive and staging cleanup"]
+    registration --> reboot["Separate reboot-survival check"]
 ```
 
-This diagram describes the scenario. The reference run records how it was actually launched and what the collected evidence supports.
+This is a **single-endpoint workgroup study**. Scenario stages S1–S7 and rule prefixes such as S1/S4 are separate namespaces. [Stage design](docs/lab/stage-design.md) and [architecture](docs/lab/architecture.md) explain the execution and telemetry roles.
 
-| Stage | Behavior | Primary telemetry | Related rules |
-| --- | --- | --- | --- |
-| S1 | Script entry | Sysmon 1: entry process | Recorded context |
-| S2 | UAC bypass mechanism | Sysmon 13: registry writes; Sysmon 1: Fodhelper → script host → PowerShell | R1, C1, S1, S2 |
-| S3 | WMI subscription registration | Sysmon 11: consumer file; Sysmon 19/20/21: filter, consumer, binding | C2 |
-| S4 | Trigger-associated consumer execution | Sysmon 1: Notepad and SYSTEM PowerShell under WmiPrvSE (user + parent verified) | R2, S3 |
-| S5 | Discovery and staging | Sysmon 1: discovery process (ancestry-joined to the interpreter); Sysmon 11: staging files | C3; C4 |
-| S6 | Archive and internal transfer | Sysmon 11 zip create; curl E1 (upload intent) + E3 to the sink; sink receipt | C4 (staging→archive, same entity), S4 (upload intent, lab analogue); the receipt proves the transfer |
-| S7 | Staging and archive cleanup | Sysmon 23 (same path as the create); post-run state checks | C5 (create→delete, per-clause `by file.path`) |
+## Latest recorded findings
 
-Rule IDs such as **S1** identify detections; stage IDs such as **S1** identify scenario steps. They are separate namespaces.
+The main RUN-04 window is **2026-10-04 08:15–08:23 UTC**. The attached reboot check occurs later, with consumer execution at **08:40:21.543 UTC**.
 
-## Recorded results
+| Finding | Supporting record | Boundary |
+|---|---|---|
+| Medium → High integrity transition observed | [Before](evidence/runs/RUN-20261003-04/elevation-before.json) / [after](evidence/runs/RUN-20261003-04/elevation-after.json) measurements; corroborating E1 integrity in the report | Filtered token of a local administrator; not standard-user-to-administrator escalation. |
+| Subscription registration and SYSTEM consumer execution | E19/20/21 references and process ancestry in the [ledger](evidence/runs/RUN-20261003-04/RUN-20261003-04.json) | Registration, activation and reboot survival are separate assertions. |
+| Internal sink received `wdmp.zip`, 16,264 bytes | [Finalised receipt](evidence/runs/RUN-20261003-04/ART-07-01-RUN-20261003-04.json) | First upload failed; three activations are retained. Two connections have missing process-entity attribution. |
+| Subscription and consumer survived a reboot | [Reboot evidence](evidence/runs/RUN-20261003-04/reboot-survival.json) | Windows Defender was stopped; AV-on survival remains untested. |
+| 51 stored alerts, including 6 for S4 | [Alert manifest](evidence/runs/RUN-20261003-04/alert-manifest.json) | Repeated activations and overlapping schedules; not 51 unique behaviors. |
 
-Four runs are recorded. The **latest is RUN-20261003-04** (4 October 2026,
-**08:15:00–08:23:00 UTC**, declared window) — the first run with a **Medium-integrity
-start** that demonstrates the UAC bypass's Medium→High transition and includes the
-**reboot-survival (AV-off) evidence**. RUN-20261003-01/02/03 are historical.
-Environment: Windows 10 Pro 19045, Sysmon 15.21, Elastic Agent 9.5.3, Elasticsearch
-9.5.3, internal sink on port 9180.
+The run report records **ACCEPTED (ES-BACKED), 49 references across 49 unique Elasticsearch documents**. That is a recorded run result; an offline clone cannot independently repeat the live fetch. Runs 01–03 began at High integrity and do not independently establish the RUN-04 elevation finding.
 
-| Record | Published result (RUN-20261003-03) |
-| --- | --- |
-| Verifier | `verify_run_evidence.py RUN-20261003-03` → **ACCEPTED (ES-BACKED)**: 22 event refs across 22 unique documents re-fetched; timestamp/code/host/join fields matched |
-| UAC-related activity | Registry writes and the Fodhelper → wscript → PowerShell chain; ancestry verified by `parent.entity_id` |
-| WMI activity | EID 19/20/21 Created; binding references parsed and equal; consumer runs as **SYSTEM** with parent **WmiPrvSE.exe** |
-| Internal transfer | Curl E1→E3 ownership by `process.entity_id` to the sink; sink receipt records `wdmp.zip` 14,661 bytes + sha256 (archive bytes are gitignored — the receipt is the committed evidence) |
-| Detection (stored alerts) | **25 stored alerts** across the 11 rules, exported with ids/timestamps to `evidence/runs/RUN-20261003-03/alert-manifest.json` |
-| Detection (behaviour) | Direct EQL re-evaluation of the same window: one cluster per rule (R1 and S2 two) — stored alerts are an upper bound due to schedule/lookback re-matching |
-| Cleanup | Archive deletion of the same `file.path`; cleanup artifact parsed and run-bound, all checks PASS (subscription left installed by design) |
-| Negative control | 2026-10-03 10:00–10:05Z (idle, 5 min): 0 matches for all 11 rules — a short negative check, **not** a false-positive rate |
+## Detection and evidence
 
-All three runs pass the strict verifier (ES-backed). Every run started in a
-**High-integrity operator session**: the UAC bypass *mechanism* is replayed without
-demonstrating a Medium→High token transition, and no reboot-survival test exists. The
-historical [review snapshot](docs/repository-review-20261003.md) describes the earlier
-state of the repository; its findings are marked superseded there.
+The export contains **10 building blocks and one ordinary alerting rule, S4**. S4 identifies upload intent; receiver-side receipt evidence supports transfer success. [Query sources](detections/queries/) · [Import bundle](detections/exports/wmi-rules.ndjson) · [Telemetry contract](docs/detection/telemetry-contract.md).
 
-## Telemetry and detection workflow
+Each [run](evidence/runs/README.md) retains a ledger, prepared artifact copies and receipts. The [historical archive](docs/archive/README.md) contains the April screenshot case study and earlier reviews; their findings belong to their own evidence dates.
 
-Sysmon writes endpoint events to Windows Event Log. Elastic Agent forwards them to Elasticsearch, where the EQL queries evaluate process, registry, WMI, file, and network behavior. Fleet manages agent enrollment and policy.
-
-Investigation uses same-host process identities where available, WMI object references for registration analysis, and file hashes for artifact comparison. Host-and-time sequences provide context; they do not automatically establish process ancestry or prove that a particular file crossed the network.
-
-- [Query sources](detections/queries/) — readable EQL predicates.
-- [Import bundle](detections/exports/wmi-rules.ndjson) — 11 rules with metadata, ATT&CK mappings, schedules, and suppression.
-- [Correlation design](docs/correlation-architecture.md) — intended join keys and evidence tiers.
-- [Reference report (latest)](reports/reference-run-20261003-03.md) — per-stage observations, stored-alert manifest and limitations; earlier runs are listed in [reports/README.md](reports/README.md).
-
-## Read the project
-
-| Start here | Purpose |
-| --- | --- |
-| [Reference run (latest)](reports/reference-run-20261003-03.md) | Execution context, timeline, per-stage verification, stored-alert manifest, limitations |
-| [Chain design](docs/attack-chain-plan.md) | S1–S7 responsibilities and evidence requirements |
-| [Detection catalogue](detections/README.md) | Rule intent and detection basis |
-| [Evidence records](evidence/runs/) | Ledger, staged artifacts, manifest, receipt, and cleanup record |
-| [Repository review](docs/repository-review-20261003.md) | Current verification results and remaining corrective work |
-
-The April 2026 [case study](docs/case-study.md) and [screenshots](evidence/sanitized-screenshots/) document an earlier version. They are historical material, separate from the October reference run.
-
-## Repository layout
-
-| Directory | Contents |
-| --- | --- |
-| `payloads/` | Launcher, WMI installer, and consumer scenario components |
-| `config/` | Sysmon configuration |
-| `detections/` | EQL sources, rule export, and catalogue |
-| `docs/` | Architecture, chain design, telemetry analysis, and review |
-| `evidence/` | Run records and historical screenshots |
-| `reports/` | Execution reports |
-| `scripts/` | Evidence helpers, rule generator, sink, verifier, and component tests |
-| `tools/` | Repository packaging validator |
-| `phishing/` | Historical delivery-page artifact |
-| `.github/workflows/` | Offline test and packaging workflow |
-
-## Local checks
+## Reproduce the checks
 
 From the repository root:
 
-```sh
-python scripts/tests/test_offline.py
+```bash
+python -m unittest discover -s scripts/tests
 python tools/validate_repository.py
-python scripts/verify/verify_run_evidence.py --all            # ES-backed acceptance
-python scripts/verify/verify_run_evidence.py RUN-20261003-03 --offline
+python scripts/verify/verify_run_evidence.py RUN-20261003-04 --offline
 ```
 
-Current state: **45 component tests pass**; the packaging validator passes and now
-scans nested run ledgers, receipts and query/export consistency (drift fails); the run
-verifier passes for **all three runs with ES-backed acceptance** (`ACCEPTED
-(ES-BACKED)`). Without ES credentials the verifier reports `ACCEPTED-LEDGER-ONLY`,
-which is explicitly *not* ES-backed acceptance.
+The repository has **47 offline component tests**. Offline ledger acceptance is not ES-backed acceptance or a fresh Windows execution. See [validation scope and prerequisites](docs/validation/README.md).
 
-These commands do not execute the Windows scenario. Live event lookup requires the configured Elasticsearch environment; scheduled detection behavior and alert attribution require separate verification in Elastic. Offline tests do not prove EQL compilation, Kibana import/scheduling, detection accuracy or false-positive rates.
+## Repository map
+
+| Location | Contents |
+|---|---|
+| [docs/](docs/README.md) | Research, lab design, detection, validation and dated historical material |
+| [detections/](detections/README.md) | EQL catalogue, sources and NDJSON export |
+| [reports/](reports/README.md) · [evidence/](evidence/README.md) | Per-run findings, ledgers, measurements and receipts |
+| [payloads/](payloads/README.md) · [config/](config/) | Existing scenario components and Sysmon configuration |
+| [scripts/](scripts/README.md) · [tools/](tools/) | Preparation/evidence tooling and offline validators |
+| [phishing/](phishing/) | Historical delivery-page artifact; no demonstrated delivery chain |
+
+[Source register](docs/research/references.md) · [Change record](CHANGELOG.md).

@@ -1,43 +1,37 @@
-# evidence — Run records
+# Run records
 
-## Runs
+[Evidence model](../README.md) · [Run reports](../../reports/README.md) · [Ledger schema](RUN-schema.json)
 
-Each run is a directory containing its ledger and artifacts.
+## Retained runs
 
-| Path | Contents |
+| Run | Ledger | Findings |
+|---|---|---|
+| **RUN-20261003-04** | [Ledger](RUN-20261003-04/RUN-20261003-04.json) | [Latest report](../../reports/reference-run-20261003-04.md): Medium-to-High evidence, finalised receipt and separate AV-off reboot check; executed 4 October |
+| RUN-20261003-03 | [Ledger](RUN-20261003-03/RUN-20261003-03.json) | [Report](../../reports/reference-run-20261003-03.md): live alerts and per-rule cluster comparison |
+| RUN-20261003-02 | [Ledger](RUN-20261003-02/RUN-20261003-02.json) | [Report](../../reports/reference-run-20261003-02.md): live-alert run and entity-based E3 ownership |
+| RUN-20261003-01 | [Ledger](RUN-20261003-01/RUN-20261003-01.json) | [Report](../../reports/reference-run-20261003-01.md): initial query-level verification |
+
+## RUN-04 evidence entry points
+
+| Assertion | Record |
 |---|---|
-| `runs/RUN-schema.json` | ledger schema (stages S1–S7 / input + output artifacts / artifact_index with sha256). Schema is stable across runs; never re-shaped for a run. |
-| `runs/RUN-20261003-01/` | first verified run: ledger + artifacts + sink receipt (verifier ACCEPTED, report `reports/reference-run-20261003-01.md`) |
-| `runs/RUN-20261003-02/` | live-alert run: ledger + artifacts + sink receipt (rebuilt with entity-based E3 ownership; verifier ACCEPTED, report `reports/reference-run-20261003-02.md`) |
-| `runs/RUN-20261003-03/` | final export run: ledger + artifacts + sink receipt (verifier ACCEPTED; 14 unique clusters / 25 stored alerts; report `reports/reference-run-20261003-03.md`) |
-| `runs/RUN-20261003-04/` | **Medium-integrity start**: ledger + elevation-before/after + finalised receipt + reboot-survival (AV-off) + alert manifest (report `reports/reference-run-20261003-04.md`) |
-| `sanitized-screenshots/` | **historical** April-2026 screenshots with hashes. These are provenance for the earlier analysis, not evidence for any run; keep them out of any acceptance claim. |
+| Starting and resulting integrity | [Before](RUN-20261003-04/elevation-before.json), [after](RUN-20261003-04/elevation-after.json) |
+| Installed consumer measurement | [Guest hash probe](RUN-20261003-04/probe-svhw-hash.json) |
+| Received archive and manifest context | [ART-07-01 receipt](RUN-20261003-04/ART-07-01-RUN-20261003-04.json), [manifest snapshot](RUN-20261003-04/_manifest.txt) |
+| Stored rule alerts | [Alert manifest](RUN-20261003-04/alert-manifest.json) |
+| Archive/staging cleanup | [ART-08-01](RUN-20261003-04/ART-08-01-RUN-20261003-04.json) |
+| Later AV-off reboot experiment | [Reboot survival record](RUN-20261003-04/reboot-survival.json) |
 
-## Ledger conventions
+## Ledger and artifact conventions
 
-- Real `es_id` + `@timestamp` per event row (fetched with
-  `scripts/verify/fetch_evidence_ids.py`); "timing approximate (<source>)" is the
-  only allowed alternative, and only in `detail`.
-- `status` is one of the schema enum; `NOT RUN` must carry an explicit note.
-- Artifact hashes: text artifacts indexed with the canonical hash (CRLF→LF
-  normalised); binary artifacts (`.zip` etc.) indexed with the raw-byte hash —
-  the verifier decides by file suffix. The S3 **module-integrity join** compares the
-  RECORDED `svhw.ps1` hash (captured by guest probe; the EID11 event on this stack
-  does not populate Hashes — provenance carried in `file_hash_provenance`) against
-  the raw sha256 of the staged consumer (`payload/consumer.ps1`, prepared by
-  `scripts/prepare_run.ps1`, indexed as ART-01-02).
-- The received archive is **not committed** (`*.zip` is gitignored): the sink receipt
-  (ART-07-01, name/size/sha256) is the server-side transfer evidence.
-- Run-scoped payloads live at `<run_id>/payload/` (prepared by
-  `scripts/prepare_run.ps1`) and are indexed like any other artifact.
-- Artifacts are written by the sink (`scripts/sink_server.py`) or captured by the
-  operator; the run id is verified *inside* each artifact, not just the folder name.
-- No credentials anywhere; `secrets_policy` is part of the schema.
+- Preserve real Elasticsearch IDs, UTC timestamps, event codes, host and join fields.
+- Preserve stage status and explicit missing-evidence notes. Overall acceptance does not erase a sensor gap.
+- Text artifact hashes use CRLF-to-LF normalization; binary hashes use raw bytes.
+- Guest consumer-file hashes are separately measured. E11 does not supply that script-content hash on this stack.
+- Run-scoped prepared payloads stay under each run's `payload/` folder and remain indexed as artifacts.
+- ZIP bytes are gitignored; a clone contains the transfer receipt, not the original transferred archive.
+- Verify run identity inside artifacts, not only their directory name. Credentials are runtime inputs.
 
-## Registering a new run
-
-1. `mkdir evidence/runs/<run_id>/`
-2. Execute the chain per `scripts/runbooks/README.md` (sink running, ES creds in env).
-3. Fill the ledger rows from `fetch_evidence_ids.py` output; index produced artifacts.
-4. `python scripts/verify/verify_run_evidence.py <run_id>` → ACCEPTED.
-5. Write `reports/<report>.md` per the §5 skeleton (see `reports/README.md`).
+The [April screenshots](../sanitized-screenshots/README.md) are historical material
+and must not be used to substantiate an October run. See the [validation guide](../../docs/validation/README.md)
+and existing [operator runbook](../../scripts/runbooks/README.md) for evaluation context.

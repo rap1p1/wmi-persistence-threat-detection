@@ -1,5 +1,8 @@
 # Reference Run Report — RUN-20261003-02
 
+[Run index](README.md) · [Study reading guide](../docs/README.md) · [Validation scope](../docs/validation/README.md)
+
+
 Window: 2026-10-03 10:46:00Z – 10:49:30Z. Ledger + artifacts:
 `evidence/runs/RUN-20261003-02/`. Verifier:
 `scripts/verify/verify_run_evidence.py RUN-20261003-02` → **ACCEPTED**

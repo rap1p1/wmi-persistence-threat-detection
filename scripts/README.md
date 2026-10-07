@@ -6,7 +6,7 @@
 | `verify/verify_run_evidence.py` | Acceptance verifier: ledger structure, stage evidence, artifact hashes, transfer receipt, fail-fast unknown runs, `--all` regression. |
 | `verify/fetch_evidence_ids.py` | Fetches real `es_id`/`@timestamp` from Elasticsearch for ledger rows (env-only credentials). |
 | `sink_server.py` | Internal transfer sink: BOUND to the lab interface (`--bind 192.168.106.1`; 0.0.0.0 refused), shared-lab-token auth (`SINK_TOKEN`/`X-LAB-Token`), receipts finalisable per run so they cannot be overwritten. |
-| `prepare_run.ps1` | Stages run-scoped payloads (run id, sink base, host, sink token) under `evidence/runs/<run_id>/payload/`; refuses sinks outside the lab range (192.168.x.x) and prints the staged consumer sha256 (ART-01-02; module integrity is the GUEST PROBE, not an EID 11 hash). |
+| `prepare_run.ps1` | Stages run-scoped payloads (run id, sink base, host; token remains a runtime input) under `evidence/runs/<run_id>/payload/`; refuses sinks outside the lab range (192.168.x.x) and prints the staged consumer sha256 (ART-01-02; module integrity is the GUEST PROBE, not an EID 11 hash). |
 | `rules/gen_rules_ndjson.ps1` | Deterministic rule export generator (rule_id = SHA-256 of name, v5 shape) → `detections/exports/wmi-rules.ndjson`. |
 | `runbooks/README.md` | Operator runbook: stages, gates, evidence capture, cleanup (includes sink/token steps, reboot-survival and elevation-preflight pointers). |
 | `tests/test_offline.py` | Offline unit tests (rule-id uniqueness, query/export drift, ledger schema negatives, verifier negatives incl. receipt/cleanup/elevation-gate/path-traversal). |

@@ -1,5 +1,8 @@
 # Reference Run Report — RUN-20261003-04 (Medium-integrity start + reboot survival)
 
+[Run index](README.md) · [Study reading guide](../docs/README.md) · [Validation scope](../docs/validation/README.md)
+
+
 Window: **2026-10-04T08:15:00Z – 08:23:00Z**. Ledger + artifacts:
 `evidence/runs/RUN-20261003-04/`. Verifier:
 `scripts/verify/verify_run_evidence.py RUN-20261003-04` → **ACCEPTED (ES-BACKED)**
